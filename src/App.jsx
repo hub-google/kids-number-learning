@@ -79,9 +79,14 @@ export default function App() {
     }
   };
 
+  const getAssetUrl = (fileName) => {
+    const baseUrl = import.meta.env.BASE_URL || './';
+    return baseUrl.endsWith('/') ? `${baseUrl}${fileName}` : `${baseUrl}/${fileName}`;
+  };
+
   const playClap = () => {
     if (!soundEnabled) return;
-    const audio = new Audio('/clap.mp3');
+    const audio = new Audio(getAssetUrl('clap.mp3'));
     audio.play().catch(() => {
       // ignore if audio file not found
     });
@@ -121,7 +126,7 @@ export default function App() {
     setHeroActive(true);
     triggerHaptic();
     if (soundEnabled) {
-      const audio = new Audio('/cheer.mp3');
+      const audio = new Audio(getAssetUrl('cheer.mp3'));
       audio.play().catch(() => {});
       
       const heroName = hero === 'transformer' ? '變形金剛' : '奧特曼';
@@ -268,8 +273,13 @@ export default function App() {
         {view === 'trace' && (
           <TracingCanvas 
             number={currentNumber} 
-            onComplete={() => {
+            onComplete={(finalScore) => {
               playClap();
+              if (finalScore === 3) {
+                setTimeout(() => {
+                  handleTriggerHero();
+                }, 1200);
+              }
             }}
             onNextNumber={handleNextNumber}
             onPrevNumber={handlePrevNumber}

@@ -76,32 +76,94 @@ export default function TracingCanvas({
     return () => window.removeEventListener('resize', resizeCanvas);
   }, [number]);
 
+  const drawStar = (context, cx, cy, radius) => {
+    const spikes = 5;
+    const outerRadius = radius;
+    const innerRadius = radius * 0.45;
+    let rot = Math.PI / 2 * 3;
+    let step = Math.PI / spikes;
+
+    context.beginPath();
+    context.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+      let x = cx + Math.cos(rot) * outerRadius;
+      let y = cy + Math.sin(rot) * outerRadius;
+      context.lineTo(x, y);
+      rot += step;
+
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      context.lineTo(x, y);
+      rot += step;
+    }
+    context.lineTo(cx, cy - outerRadius);
+    context.closePath();
+    context.fillStyle = '#ef4444'; // Bright Red Star
+    context.fill();
+    context.strokeStyle = '#ffffff';
+    context.lineWidth = 1.5;
+    context.stroke();
+  };
+
   const drawGuide = (context, w, h, cps) => {
     if (!context) return;
     context.clearRect(0, 0, w, h);
+
+    // 1. Draw Tianzige (田字格) Grid
+    const padX = w * 0.05;
+    const padY = h * 0.05;
+    const gridW = w - padX * 2;
+    const gridH = h - padY * 2;
+
+    // Draw Outer Box
+    context.strokeStyle = '#334155';
+    context.lineWidth = 4;
+    context.setLineDash([]);
+    context.strokeRect(padX, padY, gridW, gridH);
+
+    // Draw Dashed Cross Lines Inside
+    context.strokeStyle = '#94a3b8';
+    context.lineWidth = 1.5;
+    context.setLineDash([8, 8]);
     
-    const strokeWidth = Math.max(20, Math.min(42, Math.min(w, h) * 0.08));
+    // Horizontal center line
+    context.beginPath();
+    context.moveTo(padX, padY + gridH / 2);
+    context.lineTo(padX + gridW, padY + gridH / 2);
+    context.stroke();
+
+    // Vertical center line
+    context.beginPath();
+    context.moveTo(padX + gridW / 2, padY);
+    context.lineTo(padX + gridW / 2, padY + gridH);
+    context.stroke();
+
+    context.setLineDash([]);
+    
+    // 2. Draw Stroke Guide Lines
+    const strokeWidth = Math.max(22, Math.min(46, Math.min(w, h) * 0.09));
 
     context.lineCap = 'round';
     context.lineJoin = 'round';
     context.lineWidth = strokeWidth;
     
     cps.forEach((stroke) => {
+      // Guide stroke path (cyan dotted line)
       context.beginPath();
-      context.setLineDash([strokeWidth * 0.4, strokeWidth * 0.6]);
-      context.strokeStyle = '#d3e0ea';
+      context.setLineDash([strokeWidth * 0.35, strokeWidth * 0.5]);
+      context.strokeStyle = '#38bdf8';
       stroke.forEach((pt, idx) => {
         if (idx === 0) context.moveTo(pt.x, pt.y);
         else context.lineTo(pt.x, pt.y);
       });
       context.stroke();
       
-      // Draw starting dot
-      context.beginPath();
-      context.setLineDash([]);
-      context.fillStyle = '#ff9a9e';
-      context.arc(stroke[0].x, stroke[0].y, strokeWidth * 0.4, 0, Math.PI * 2);
-      context.fill();
+      // Draw Red Star at start of stroke & key points
+      stroke.forEach((pt) => {
+        if (pt.isStart || pt.isEnd) {
+          drawStar(context, pt.x, pt.y, strokeWidth * 0.55);
+        }
+      });
     });
     
     context.setLineDash([]);
@@ -197,35 +259,33 @@ export default function TracingCanvas({
   };
 
   const checkHit = (x, y) => {
-    if (progress.strokeIdx >= checkpoints.length) return;
+    if (!checkpoints || checkpoints.length === 0) return;
     
-    let { strokeIdx, ptIdx } = progress;
-    let currentStroke = checkpoints[strokeIdx];
-    let targetPt = currentStroke[ptIdx];
+    const HIT_RADIUS = Math.max(45, Math.min(75, dimensions.width * 0.16));
+    let updated = false;
+    const newCheckpoints = checkpoints.map(stroke => [...stroke]);
     
-    const dist = Math.hypot(x - targetPt.x, y - targetPt.y);
-    const HIT_RADIUS = Math.max(35, Math.min(60, dimensions.width * 0.12));
-    
-    if (dist < HIT_RADIUS) {
-      const newCheckpoints = [...checkpoints];
-      newCheckpoints[strokeIdx] = [...newCheckpoints[strokeIdx]];
-      newCheckpoints[strokeIdx][ptIdx] = { ...newCheckpoints[strokeIdx][ptIdx], hit: true };
-      
-      setCheckpoints(newCheckpoints);
-      
-      let nextS = strokeIdx;
-      let nextP = ptIdx + 1;
-      while (nextS < newCheckpoints.length) {
-        if (nextP >= newCheckpoints[nextS].length) {
-          nextS++;
-          nextP = 0;
-        } else if (newCheckpoints[nextS][nextP].hit) {
-          nextP++;
-        } else {
-          break;
+    newCheckpoints.forEach((stroke, sIdx) => {
+      stroke.forEach((pt, pIdx) => {
+        if (!pt.hit) {
+          const dist = Math.hypot(x - pt.x, y - pt.y);
+          if (dist < HIT_RADIUS) {
+            newCheckpoints[sIdx][pIdx] = { ...pt, hit: true };
+            updated = true;
+
+            // Auto fill previous unhit points in the same stroke up to this point
+            for (let prevIdx = 0; prevIdx < pIdx; prevIdx++) {
+              if (!newCheckpoints[sIdx][prevIdx].hit) {
+                newCheckpoints[sIdx][prevIdx] = { ...newCheckpoints[sIdx][prevIdx], hit: true };
+              }
+            }
+          }
         }
-      }
-      setProgress({ strokeIdx: nextS, ptIdx: nextP });
+      });
+    });
+
+    if (updated) {
+      setCheckpoints(newCheckpoints);
     }
   };
 
@@ -262,16 +322,16 @@ export default function TracingCanvas({
 
     const hitRatio = totalPts === 0 ? 0 : hitPts / totalPts;
     let finalScore = 1;
-    if (hitRatio > 0.75) finalScore = 3;
-    else if (hitRatio > 0.35) finalScore = 2;
+    if (hitRatio >= 0.65) finalScore = 3;
+    else if (hitRatio >= 0.35) finalScore = 2;
     
     setScore(finalScore);
 
     if (finalScore >= 2) {
-      if (onComplete) onComplete();
+      if (onComplete) onComplete(finalScore);
       confetti({
-        particleCount: 120,
-        spread: 70,
+        particleCount: 140,
+        spread: 80,
         origin: { y: 0.6 },
         colors: ['#ff9a9e', '#fecfef', '#a1c4fd', '#f6d365']
       });

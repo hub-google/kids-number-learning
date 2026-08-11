@@ -30,7 +30,9 @@ export default function HeroAnimation({ type }) {
     frame();
   }, []);
 
-  const heroImage = type === 'transformer' ? '/transformer.png' : '/ultraman.png';
+  const baseUrl = import.meta.env.BASE_URL || './';
+  const heroFileName = type === 'transformer' ? 'transformer.png' : 'ultraman.png';
+  const heroImage = baseUrl.endsWith('/') ? `${baseUrl}${heroFileName}` : `${baseUrl}/${heroFileName}`;
   const heroName = type === 'transformer' ? '變形金剛' : '奧特曼';
 
   return (
