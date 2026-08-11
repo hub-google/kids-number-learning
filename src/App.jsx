@@ -43,9 +43,9 @@ export default function App() {
     if (!soundEnabled) return;
     const audio = new Audio('/clap.mp3');
     audio.play().catch(() => {
-      // Fallback to speech synthesis if audio file not found
-      speak("你好厲害！拍拍手！");
+      // ignore if audio file not found
     });
+    speak("你好厲害！拍拍手！");
   };
 
   const handleNumberSelect = (num) => {
@@ -55,15 +55,37 @@ export default function App() {
     setView('trace');
   };
 
+  const handleNextNumber = () => {
+    triggerHaptic();
+    const nextNum = (currentNumber || 1) + 1;
+    setCurrentNumber(nextNum);
+    speak(nextNum.toString());
+  };
+
+  const handlePrevNumber = () => {
+    if (!currentNumber || currentNumber <= 1) return;
+    triggerHaptic();
+    const prevNum = currentNumber - 1;
+    setCurrentNumber(prevNum);
+    speak(prevNum.toString());
+  };
+
+  const handleBackToGrid = () => {
+    triggerHaptic();
+    setView('grid');
+  };
+
   const handleTriggerHero = () => {
-    setHeroType(Math.random() > 0.5 ? 'transformer' : 'ultraman');
+    const hero = Math.random() > 0.5 ? 'transformer' : 'ultraman';
+    setHeroType(hero);
     setHeroActive(true);
     triggerHaptic();
     if (soundEnabled) {
       const audio = new Audio('/cheer.mp3');
-      audio.play().catch(() => {
-        speak("太棒了！為你拍拍手！繼續加油！");
-      });
+      audio.play().catch(() => {});
+      
+      const heroName = hero === 'transformer' ? '變形金剛' : '奧特曼';
+      speak(`太棒了！${heroName}為你拍拍手！繼續加油！`);
     }
     setTimeout(() => {
       setHeroActive(false);
@@ -125,7 +147,9 @@ export default function App() {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.08)'
+              boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
+              border: 'none',
+              cursor: 'pointer'
             }}
           >
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />} 
@@ -134,10 +158,7 @@ export default function App() {
 
           {view === 'trace' && (
             <button
-              onClick={() => {
-                triggerHaptic();
-                setView('grid');
-              }}
+              onClick={handleBackToGrid}
               aria-label="回到主頁格"
               style={{
                 padding: '6px 14px',
@@ -149,7 +170,9 @@ export default function App() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                border: 'none',
+                cursor: 'pointer'
               }}
             >
               <Home size={18} /> <span>主格</span>
@@ -176,6 +199,9 @@ export default function App() {
             onComplete={() => {
               playClap();
             }}
+            onNextNumber={handleNextNumber}
+            onPrevNumber={handlePrevNumber}
+            onBackToGrid={handleBackToGrid}
             soundEnabled={soundEnabled}
             speak={speak}
             triggerHaptic={triggerHaptic}

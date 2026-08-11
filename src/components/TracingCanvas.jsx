@@ -1,9 +1,18 @@
 import { useRef, useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Star, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Star, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, Home, ArrowRight } from 'lucide-react';
 import { generateCheckpoints } from '../utils/strokeData';
 
-export default function TracingCanvas({ number, onComplete, soundEnabled, speak, triggerHaptic }) {
+export default function TracingCanvas({
+  number,
+  onComplete,
+  onNextNumber,
+  onPrevNumber,
+  onBackToGrid,
+  soundEnabled,
+  speak,
+  triggerHaptic
+}) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -25,9 +34,9 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
         const dpr = window.devicePixelRatio || 1;
         const rect = containerRef.current.getBoundingClientRect();
         
-        // Reserve height for floating bottom action bar (approx 70px)
+        // Reserve height for top nav bar (~40px) & bottom action bar (~70px)
         const cssWidth = rect.width;
-        const cssHeight = Math.max(200, rect.height - 80);
+        const cssHeight = Math.max(180, rect.height - 120);
         
         canvas.style.width = `${cssWidth}px`;
         canvas.style.height = `${cssHeight}px`;
@@ -172,7 +181,6 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
   const handleDone = () => {
     if (triggerHaptic) triggerHaptic();
     if (score !== null) {
-      onComplete();
       return;
     }
 
@@ -193,6 +201,7 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
     setScore(finalScore);
 
     if (finalScore >= 2) {
+      if (onComplete) onComplete();
       confetti({
         particleCount: 120,
         spread: 70,
@@ -206,6 +215,16 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
     }
   };
 
+  const handleNextClick = () => {
+    setScore(null);
+    if (onNextNumber) onNextNumber();
+  };
+
+  const handlePrevClick = () => {
+    setScore(null);
+    if (onPrevNumber) onPrevNumber();
+  };
+
   return (
     <div 
       ref={containerRef} 
@@ -217,39 +236,104 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
         alignItems: 'center', 
         justifyContent: 'space-between',
         position: 'relative',
-        padding: '10px 10px calc(10px + var(--safe-bottom)) 10px'
+        padding: '6px 10px calc(10px + var(--safe-bottom)) 10px'
       }}
     >
+      {/* Top Number Navigation Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        maxWidth: '420px',
+        padding: '4px 8px'
+      }}>
+        <button
+          onClick={handlePrevClick}
+          disabled={number <= 1}
+          aria-label="上一個數字"
+          style={{
+            padding: '6px 12px',
+            borderRadius: '20px',
+            background: number <= 1 ? '#e0e0e0' : '#ff9a9e',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            opacity: number <= 1 ? 0.4 : 1,
+            cursor: number <= 1 ? 'not-allowed' : 'pointer',
+            border: 'none',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+          }}
+        >
+          <ChevronLeft size={18} /> 上一個
+        </button>
+
+        <div style={{
+          fontSize: 'clamp(1.2rem, 5vw, 1.6rem)',
+          fontWeight: '900',
+          color: '#ff7eb3',
+          background: 'rgba(255, 255, 255, 0.9)',
+          padding: '4px 18px',
+          borderRadius: '20px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+        }}>
+          數字 {number}
+        </div>
+
+        <button
+          onClick={handleNextClick}
+          aria-label="下一個數字"
+          style={{
+            padding: '6px 12px',
+            borderRadius: '20px',
+            background: '#ff9a9e',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            cursor: 'pointer',
+            border: 'none',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+          }}
+        >
+          下一個 <ChevronRight size={18} />
+        </button>
+      </div>
       
       {/* Celebration / Score Overlay Modal */}
       {score !== null && (
         <div style={{
           position: 'absolute',
-          top: '45%',
+          top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          background: 'rgba(255, 255, 255, 0.96)',
-          padding: '24px 36px',
+          background: 'rgba(255, 255, 255, 0.98)',
+          padding: '24px 28px',
           borderRadius: '28px',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.18)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: '16px',
           zIndex: 30,
-          width: '85%',
-          maxWidth: '340px',
-          animation: 'bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+          width: '90%',
+          maxWidth: '360px',
+          animation: 'bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
         }}>
           <h2 style={{ color: '#ff7eb3', margin: 0, fontSize: 'clamp(1.5rem, 6vw, 2.2rem)', fontWeight: '900' }}>
-            {score === 3 ? '太棒了！' : score === 2 ? '不錯喔！' : '再試一次！'}
+            {score === 3 ? '🎉 太棒了！' : score === 2 ? '👍 不錯喔！' : '💪 再試一次！'}
           </h2>
 
           <div style={{ display: 'flex', gap: '8px' }}>
             {[1, 2, 3].map(star => (
               <Star 
                 key={star} 
-                size={48} 
+                size={46} 
                 fill={star <= score ? '#f6d365' : '#e0e0e0'} 
                 color={star <= score ? '#f6d365' : '#e0e0e0'}
                 style={{ 
@@ -259,23 +343,102 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
             ))}
           </div>
 
-          <button
-            onClick={score === 3 ? onComplete : handleReset}
-            style={{
-              marginTop: '8px',
-              padding: '10px 24px',
-              fontSize: '18px',
-              borderRadius: '25px',
-              background: score === 3 ? '#a1c4fd' : '#ffecd2',
-              color: score === 3 ? 'white' : '#fcb69f',
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.08)'
-            }}
-          >
-            {score === 3 ? '🎉 完成' : '🔄 重新挑戰'}
-          </button>
+          {/* Action Buttons in Modal */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '6px' }}>
+            {/* Primary Action Button: Next Number */}
+            <button
+              onClick={handleNextClick}
+              style={{
+                width: '100%',
+                padding: '12px 20px',
+                fontSize: '18px',
+                borderRadius: '25px',
+                background: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
+                color: '#2b508e',
+                border: 'none',
+                fontWeight: '900',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(161, 196, 253, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              下一個數字 ({number + 1}) <ArrowRight size={22} />
+            </button>
+
+            {/* Secondary Action Row */}
+            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+              <button
+                onClick={handleReset}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  borderRadius: '20px',
+                  background: '#ffecd2',
+                  color: '#d97746',
+                  border: 'none',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <RefreshCw size={16} /> 再寫一次
+              </button>
+
+              {number > 1 && (
+                <button
+                  onClick={handlePrevClick}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    fontSize: '14px',
+                    borderRadius: '20px',
+                    background: '#f0f4f8',
+                    color: '#555',
+                    border: 'none',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ChevronLeft size={16} /> 上一個 ({number - 1})
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  setScore(null);
+                  if (onBackToGrid) onBackToGrid();
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  borderRadius: '20px',
+                  background: '#ffe5ec',
+                  color: '#ff4d6d',
+                  border: 'none',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Home size={16} /> 主頁
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -325,7 +488,8 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '6px'
+            gap: '6px',
+            border: 'none'
           }}
           onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(4px)'}
           onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -349,7 +513,8 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '6px'
+            gap: '6px',
+            border: 'none'
           }}
           onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(4px)'}
           onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -361,4 +526,5 @@ export default function TracingCanvas({ number, onComplete, soundEnabled, speak,
     </div>
   );
 }
+
 
