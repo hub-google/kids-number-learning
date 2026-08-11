@@ -7,21 +7,33 @@
   --accent-color: #a1c4fd;
   --text-color: #555;
   --hero-color: #f6d365;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
   box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-body {
+html, body {
   margin: 0;
   padding: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh; /* dynamic viewport height for mobile browsers */
   font-family: 'Nunito', 'Comic Sans MS', '微軟正黑體', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-color);
   overflow: hidden; /* Prevent scrolling, keep it app-like */
+  touch-action: manipulation;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
 }
 
 /* Base button styles */
@@ -31,10 +43,11 @@ button {
   border: none;
   outline: none;
   transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  touch-action: manipulation;
 }
 
 button:active {
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
 
 /* Animations */
@@ -47,7 +60,7 @@ button:active {
 
 @keyframes pop {
   0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  50% { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
 
@@ -56,6 +69,11 @@ button:active {
   25% { transform: translateX(-5px) rotate(-5deg); }
   50% { transform: translateX(5px) rotate(5deg); }
   75% { transform: translateX(-5px) rotate(-5deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
 }
 
 .animate-bounceIn {
@@ -74,3 +92,9 @@ button:active {
 canvas {
   touch-action: none; /* Prevent browser handling of touch (like scrolling) */
 }
+
+/* Hide scrollbars cleanly */
+::-webkit-scrollbar {
+  display: none;
+}
+

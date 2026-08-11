@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Volume2, VolumeX, Home } from 'lucide-react';
 import NumberGrid from './components/NumberGrid';
 import TracingCanvas from './components/TracingCanvas';
@@ -13,14 +13,30 @@ export default function App() {
   // Global settings
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  const triggerHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(20);
+      } catch (e) {
+        // ignore if not supported or restricted
+      }
+    }
+  };
+
   const speak = (text) => {
     if (!soundEnabled) return;
-    const synth = window.speechSynthesis;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'zh-TW';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.2; // Childlike pitch
-    synth.speak(utterance);
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      synth.cancel(); // cancel pending speeches
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-TW';
+      utterance.rate = 0.9;
+      utterance.pitch = 1.2; // Childlike pitch
+      synth.speak(utterance);
+    } catch (e) {
+      // ignore TTS failures
+    }
   };
 
   const playClap = () => {
@@ -33,7 +49,7 @@ export default function App() {
   };
 
   const handleNumberSelect = (num) => {
-    // Speak the number first
+    triggerHaptic();
     speak(num.toString());
     setCurrentNumber(num);
     setView('trace');
@@ -42,6 +58,7 @@ export default function App() {
   const handleTriggerHero = () => {
     setHeroType(Math.random() > 0.5 ? 'transformer' : 'ultraman');
     setHeroActive(true);
+    triggerHaptic();
     if (soundEnabled) {
       const audio = new Audio('/cheer.mp3');
       audio.play().catch(() => {
@@ -55,71 +72,101 @@ export default function App() {
 
   return (
     <div style={{
-      width: '100vw',
-      height: '100vh',
+      width: '100%',
+      height: '100%',
       display: 'flex',
       flexDirection: 'column',
       background: 'linear-gradient(135deg, #fdfbf7 0%, #e0f2f1 100%)',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden'
     }}>
-      {/* Simple Header/Controls */}
-      <div style={{
-        padding: '10px 20px',
+      {/* Mobile Responsive Header */}
+      <header style={{
+        paddingTop: 'calc(10px + var(--safe-top))',
+        paddingBottom: '10px',
+        paddingLeft: '16px',
+        paddingRight: '16px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'rgba(255,255,255,0.7)',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-        zIndex: 10
+        background: 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(8px)',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        zIndex: 10,
+        flexShrink: 0
       }}>
-        <h1 style={{ margin: 0, fontSize: '24px', color: '#ff7eb3' }}>
+        <h1 style={{
+          margin: 0,
+          fontSize: 'clamp(1.1rem, 4.5vw, 1.6rem)',
+          color: '#ff7eb3',
+          fontWeight: '900',
+          letterSpacing: '0.5px',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
           ✨ 數字好好玩 ✨
         </h1>
-        <div style={{ display: 'flex', gap: '15px' }}>
+        
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button 
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => {
+              triggerHaptic();
+              setSoundEnabled(!soundEnabled);
+            }}
+            aria-label={soundEnabled ? '關閉音效' : '開啟音效'}
             style={{
-              padding: '8px 15px',
+              padding: '6px 12px',
               borderRadius: '20px',
               background: soundEnabled ? '#a8edea' : '#fed6e3',
               fontWeight: 'bold',
+              fontSize: 'clamp(0.8rem, 3.2vw, 0.95rem)',
               color: '#333',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '6px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.08)'
             }}
           >
-            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />} 
-            {soundEnabled ? '音效開' : '音效關'}
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />} 
+            <span>{soundEnabled ? '音效開' : '音效關'}</span>
           </button>
+
           {view === 'trace' && (
             <button
-              onClick={() => setView('grid')}
+              onClick={() => {
+                triggerHaptic();
+                setView('grid');
+              }}
+              aria-label="回到主頁格"
               style={{
-                padding: '8px 15px',
+                padding: '6px 14px',
                 borderRadius: '20px',
                 background: '#ff9a9e',
                 color: 'white',
                 fontWeight: 'bold',
+                fontSize: 'clamp(0.8rem, 3.2vw, 0.95rem)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '6px',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
               }}
             >
-              <Home size={20} /> 回到主格
+              <Home size={18} /> <span>主格</span>
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <main style={{ flex: 1, position: 'relative', overflow: 'hidden', width: '100%', display: 'flex' }}>
         {view === 'grid' && (
           <NumberGrid 
             onSelectNumber={handleNumberSelect} 
             onTriggerHero={handleTriggerHero}
             soundEnabled={soundEnabled}
             speak={speak}
+            triggerHaptic={triggerHaptic}
           />
         )}
         
@@ -131,9 +178,10 @@ export default function App() {
             }}
             soundEnabled={soundEnabled}
             speak={speak}
+            triggerHaptic={triggerHaptic}
           />
         )}
-      </div>
+      </main>
 
       {/* Hero Animation Overlay */}
       {heroActive && (
@@ -142,3 +190,4 @@ export default function App() {
     </div>
   );
 }
+

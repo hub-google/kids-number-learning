@@ -40,16 +40,17 @@ export default function HeroAnimation({ type }) {
       left: 0,
       width: '100%',
       height: '100%',
-      background: 'rgba(255,255,255,0.8)',
+      background: 'rgba(255,255,255,0.88)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 100,
-      backdropFilter: 'blur(5px)'
+      backdropFilter: 'blur(8px)',
+      padding: '20px'
     }}>
       
-      <div className="animate-bounceIn" style={{ textAlign: 'center' }}>
+      <div className="animate-bounceIn" style={{ textAlign: 'center', maxWidth: '90%' }}>
         {/* Animated Hero Image */}
         <div 
           className="animate-shake" 
@@ -63,8 +64,9 @@ export default function HeroAnimation({ type }) {
             src={heroImage} 
             alt={heroName}
             style={{
-              width: '250px',
-              height: '250px',
+              width: '100%',
+              maxWidth: '220px',
+              maxHeight: '30vh',
               objectFit: 'contain',
               filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.2))'
             }}
@@ -73,17 +75,18 @@ export default function HeroAnimation({ type }) {
         
         {/* Glowing Text */}
         <h2 style={{
-          fontSize: '48px',
+          fontSize: 'clamp(1.4rem, 6vw, 2.5rem)',
           color: '#ff6b6b',
-          textShadow: '0 0 20px #fecfef, 2px 2px 0px #fff',
-          marginTop: '20px',
+          textShadow: '0 0 15px #fecfef, 2px 2px 0px #fff',
+          marginTop: '16px',
+          marginBottom: '8px',
           fontFamily: "'Comic Sans MS', cursive, sans-serif"
         }}>
           太棒了！{heroName}為你拍拍手！
         </h2>
         
         {/* Clapping Hands */}
-        <div style={{ fontSize: '60px', marginTop: '10px' }} className="animate-pop">
+        <div style={{ fontSize: 'clamp(36px, 10vw, 56px)', marginTop: '8px' }} className="animate-pop">
           👏👏👏
         </div>
       </div>
@@ -91,3 +94,4 @@ export default function HeroAnimation({ type }) {
     </div>
   );
 }
+
