@@ -1,17 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Volume2, VolumeX, Home, RotateCw } from 'lucide-react';
 import NumberGrid from './components/NumberGrid';
 import TracingCanvas from './components/TracingCanvas';
 import HeroAnimation from './components/HeroAnimation';
+import { getRandomClap, getRandomHeroPraise } from './utils/praiseData';
 
 export default function App() {
   const [view, setView] = useState('grid'); // 'grid' or 'trace'
   const [currentNumber, setCurrentNumber] = useState(null);
   const [heroActive, setHeroActive] = useState(false);
   const [heroType, setHeroType] = useState('transformer'); // 'transformer' or 'ultraman'
+  const [heroPraiseText, setHeroPraiseText] = useState('');
 
   // Global settings
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Track active audio instances so we can stop them on navigation
+  const activeAudiosRef = useRef([]);
+  const heroTimeoutRef = useRef(null);
 
   // Background Auto-Update Check
   useEffect(() => {
@@ -63,7 +69,7 @@ export default function App() {
     }
   };
 
-  const speak = (text) => {
+  const speak = useCallback((text) => {
     if (!soundEnabled) return;
     try {
       const synth = window.speechSynthesis;
@@ -77,21 +83,47 @@ export default function App() {
     } catch (e) {
       // ignore TTS failures
     }
-  };
+  }, [soundEnabled]);
+
+  // Stop ALL currently playing audio & TTS
+  const stopAllAudio = useCallback(() => {
+    try {
+      // Stop TTS
+      const synth = window.speechSynthesis;
+      if (synth) synth.cancel();
+    } catch (e) { /* ignore */ }
+    // Stop all tracked Audio instances
+    activeAudiosRef.current.forEach(audio => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (e) { /* ignore */ }
+    });
+    activeAudiosRef.current = [];
+  }, []);
+
+  // Play a tracked audio file (so we can stop it later)
+  const playTrackedAudio = useCallback((url) => {
+    const audio = new Audio(url);
+    activeAudiosRef.current.push(audio);
+    audio.addEventListener('ended', () => {
+      activeAudiosRef.current = activeAudiosRef.current.filter(a => a !== audio);
+    });
+    audio.play().catch(() => {});
+    return audio;
+  }, []);
 
   const getAssetUrl = (fileName) => {
     const baseUrl = import.meta.env.BASE_URL || './';
     return baseUrl.endsWith('/') ? `${baseUrl}${fileName}` : `${baseUrl}/${fileName}`;
   };
 
-  const playClap = () => {
+  const playClap = useCallback(() => {
     if (!soundEnabled) return;
-    const audio = new Audio(getAssetUrl('clap.mp3'));
-    audio.play().catch(() => {
-      // ignore if audio file not found
-    });
-    speak("你好厲害！拍拍手！");
-  };
+    playTrackedAudio(getAssetUrl('clap.mp3'));
+    const praise = getRandomClap();
+    speak(praise.text);
+  }, [soundEnabled, speak, playTrackedAudio]);
 
   const handleNumberSelect = (num) => {
     triggerHaptic();
@@ -101,7 +133,13 @@ export default function App() {
   };
 
   const handleNextNumber = () => {
+    stopAllAudio();
     triggerHaptic();
+    // Also dismiss hero if active
+    if (heroActive) {
+      setHeroActive(false);
+      if (heroTimeoutRef.current) clearTimeout(heroTimeoutRef.current);
+    }
     const nextNum = (currentNumber || 1) + 1;
     setCurrentNumber(nextNum);
     speak(nextNum.toString());
@@ -109,7 +147,13 @@ export default function App() {
 
   const handlePrevNumber = () => {
     if (!currentNumber || currentNumber <= 1) return;
+    stopAllAudio();
     triggerHaptic();
+    // Also dismiss hero if active
+    if (heroActive) {
+      setHeroActive(false);
+      if (heroTimeoutRef.current) clearTimeout(heroTimeoutRef.current);
+    }
     const prevNum = currentNumber - 1;
     setCurrentNumber(prevNum);
     speak(prevNum.toString());
@@ -120,20 +164,36 @@ export default function App() {
     setView('grid');
   };
 
+  const handleDismissHero = useCallback(() => {
+    setHeroActive(false);
+    stopAllAudio();
+    if (heroTimeoutRef.current) {
+      clearTimeout(heroTimeoutRef.current);
+      heroTimeoutRef.current = null;
+    }
+  }, [stopAllAudio]);
+
   const handleTriggerHero = () => {
     const hero = Math.random() > 0.5 ? 'transformer' : 'ultraman';
     setHeroType(hero);
-    setHeroActive(true);
     triggerHaptic();
+
+    // Pick a random praise for this hero
+    const praise = getRandomHeroPraise(hero);
+    setHeroPraiseText(praise.display || praise.text);
+
+    setHeroActive(true);
+
     if (soundEnabled) {
-      const audio = new Audio(getAssetUrl('cheer.mp3'));
-      audio.play().catch(() => {});
-      
-      const heroName = hero === 'transformer' ? '變形金剛' : '奧特曼';
-      speak(`太棒了！${heroName}為你拍拍手！繼續加油！`);
+      playTrackedAudio(getAssetUrl('cheer.mp3'));
+      speak(praise.text);
     }
-    setTimeout(() => {
+
+    // Clear previous timeout
+    if (heroTimeoutRef.current) clearTimeout(heroTimeoutRef.current);
+    heroTimeoutRef.current = setTimeout(() => {
       setHeroActive(false);
+      heroTimeoutRef.current = null;
     }, 4000);
   };
 
@@ -293,7 +353,11 @@ export default function App() {
 
       {/* Hero Animation Overlay */}
       {heroActive && (
-        <HeroAnimation type={heroType} />
+        <HeroAnimation
+          type={heroType}
+          praiseText={heroPraiseText}
+          onDismiss={handleDismissHero}
+        />
       )}
     </div>
   );

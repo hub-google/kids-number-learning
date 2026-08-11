@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { Star, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, Home, ArrowRight, Eraser } from 'lucide-react';
 import { generateCheckpoints, drawDigitPath, DIGIT_PATHS } from '../utils/strokeData';
+import { getRandomScoreTitle } from '../utils/praiseData';
 
 export default function TracingCanvas({
   number,
@@ -22,6 +23,7 @@ export default function TracingCanvas({
   const [checkpoints, setCheckpoints] = useState([]);
   const [progress, setProgress] = useState({ strokeIdx: 0, ptIdx: 0 });
   const [score, setScore] = useState(null);
+  const [scoreTitle, setScoreTitle] = useState('');
   const [dimensions, setDimensions] = useState({ width: 300, height: 400 });
 
   // Initialize Canvas with High-DPI Retina Support
@@ -325,6 +327,7 @@ export default function TracingCanvas({
     else if (hitRatio >= 0.35) finalScore = 2;
     
     setScore(finalScore);
+    setScoreTitle(getRandomScoreTitle(finalScore));
 
     if (finalScore >= 2) {
       if (onComplete) onComplete(finalScore);
@@ -342,12 +345,24 @@ export default function TracingCanvas({
   };
 
   const handleNextClick = () => {
+    // Stop all audio/TTS when navigating
+    try {
+      const synth = window.speechSynthesis;
+      if (synth) synth.cancel();
+    } catch (e) { /* ignore */ }
     setScore(null);
+    setScoreTitle('');
     if (onNextNumber) onNextNumber();
   };
 
   const handlePrevClick = () => {
+    // Stop all audio/TTS when navigating
+    try {
+      const synth = window.speechSynthesis;
+      if (synth) synth.cancel();
+    } catch (e) { /* ignore */ }
     setScore(null);
+    setScoreTitle('');
     if (onPrevNumber) onPrevNumber();
   };
 
@@ -449,7 +464,7 @@ export default function TracingCanvas({
           maxWidth: '360px'
         }}>
           <h2 style={{ color: '#ff7eb3', margin: 0, fontSize: 'clamp(1.5rem, 6vw, 2.2rem)', fontWeight: '900' }}>
-            {score === 3 ? '🎉 太棒了！' : score === 2 ? '👍 不錯喔！' : '💪 再試一次！'}
+            {scoreTitle}
           </h2>
 
           <div style={{ display: 'flex', gap: '8px' }}>
