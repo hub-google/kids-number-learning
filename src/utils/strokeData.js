@@ -171,19 +171,29 @@ export const generateCheckpoints = (numberStr, canvasWidth, canvasHeight) => {
   const totalSpacing = digitSpacing * (numDigits - 1);
   const digitWidth = (usableWidth - totalSpacing) / numDigits;
 
+  // ── Inset: shrink each digit's drawing rect so thick strokes stay inside ──
+  const guideStrokeW = Math.max(18, Math.min(numDigits >= 3 ? 28 : 38, digitWidth * 0.18));
+  const inset = guideStrokeW / 2 + 4; // half stroke + 4px safety
+
   const allCheckpoints = [];
 
   digits.forEach((digit, index) => {
     const paths = DIGIT_PATHS[digit] || DIGIT_PATHS['0'];
-    const offsetX = paddingX + index * (digitWidth + digitSpacing);
-    const offsetY = paddingY;
+    const baseX = paddingX + index * (digitWidth + digitSpacing);
+    const baseY = paddingY;
+
+    // Apply inset so checkpoints match the visually inset digit paths
+    const innerX = baseX + inset;
+    const innerY = baseY + inset;
+    const innerW = digitWidth - inset * 2;
+    const innerH = usableHeight - inset * 2;
 
     // Merge all strokes into one stroke's checkpoints (simplified for child tracing)
     paths.forEach((cmds, strokeIdx) => {
       const rawPts = samplePath(cmds, 12);
       const scaledPts = rawPts.map((pt, pIdx) => ({
-        x: offsetX + pt.x * digitWidth,
-        y: offsetY + pt.y * usableHeight,
+        x: innerX + pt.x * innerW,
+        y: innerY + pt.y * innerH,
         isStart: pIdx === 0,
         isEnd: pIdx === rawPts.length - 1,
         hit: false,

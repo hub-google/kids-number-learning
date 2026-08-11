@@ -117,12 +117,22 @@ export default function TracingCanvas({
     const gap = Math.min(16, useW * 0.04);
     const dW = (useW - gap * (numDigits - 1)) / numDigits;
 
-    const guideStrokeW = Math.max(18, Math.min(38, dW * 0.18));
+    // Cap stroke width lower for 3-digit numbers to keep proportions
+    const guideStrokeW = Math.max(18, Math.min(numDigits >= 3 ? 28 : 38, dW * 0.18));
+
+    // ── Inset: shrink each digit's drawing rect so thick strokes stay inside ──
+    const inset = guideStrokeW / 2 + 4; // half stroke + 4px safety
 
     digits.forEach((digit, dIdx) => {
       const paths = DIGIT_PATHS[digit] || DIGIT_PATHS['0'];
-      const oX = pX + dIdx * (dW + gap);
-      const oY = pY;
+      const baseX = pX + dIdx * (dW + gap);
+      const baseY = pY;
+
+      // Apply inset so strokes don't overflow the grid boundary
+      const innerX = baseX + inset;
+      const innerY = baseY + inset;
+      const innerW = dW - inset * 2;
+      const innerH = useH - inset * 2;
 
       paths.forEach((cmds, sIdx) => {
         // Shadow / glow for readability
@@ -132,14 +142,14 @@ export default function TracingCanvas({
         context.lineWidth = guideStrokeW + 6;
         context.strokeStyle = 'rgba(0,0,0,0.06)';
         context.setLineDash([]);
-        drawDigitPath(context, cmds, oX, oY, dW, useH);
+        drawDigitPath(context, cmds, innerX, innerY, innerW, innerH);
         context.stroke();
 
         // Main guide line – light blue dashed
         context.lineWidth = guideStrokeW;
         context.strokeStyle = 'rgba(147,197,253,0.75)'; // light blue
         context.setLineDash([guideStrokeW * 0.6, guideStrokeW * 0.5]);
-        drawDigitPath(context, cmds, oX, oY, dW, useH);
+        drawDigitPath(context, cmds, innerX, innerY, innerW, innerH);
         context.stroke();
         context.setLineDash([]);
         context.restore();
@@ -147,8 +157,8 @@ export default function TracingCanvas({
         // Start-dot badge with stroke number
         const firstCmd = cmds[0];
         if (firstCmd && firstCmd.cmd === 'M') {
-          const bx = oX + firstCmd.x * dW;
-          const by = oY + firstCmd.y * useH;
+          const bx = innerX + firstCmd.x * innerW;
+          const by = innerY + firstCmd.y * innerH;
           const br = Math.max(10, guideStrokeW * 0.55);
           const colors = ['#ef4444', '#f97316', '#8b5cf6'];
           context.save();
