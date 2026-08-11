@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Star, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, Home, ArrowRight } from 'lucide-react';
+import { Star, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, Home, ArrowRight, Eraser } from 'lucide-react';
 import { generateCheckpoints } from '../utils/strokeData';
 
 export default function TracingCanvas({
@@ -13,9 +13,11 @@ export default function TracingCanvas({
   speak,
   triggerHaptic
 }) {
+  const bgCanvasRef = useRef(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isEraser, setIsEraser] = useState(false);
   const [ctx, setCtx] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
   const [progress, setProgress] = useState({ strokeIdx: 0, ptIdx: 0 });
@@ -36,7 +38,7 @@ export default function TracingCanvas({
         
         // Reserve height for top nav bar (~40px) & bottom action bar (~70px)
         const cssWidth = rect.width;
-        const cssHeight = Math.max(180, rect.height - 120);
+        const cssHeight = Math.max(200, rect.height - 80);
         
         canvas.style.width = `${cssWidth}px`;
         canvas.style.height = `${cssHeight}px`;
@@ -55,7 +57,17 @@ export default function TracingCanvas({
         setProgress({ strokeIdx: 0, ptIdx: 0 });
         setScore(null);
         
-        drawGuide(context, cssWidth, cssHeight, cps);
+        const bgCanvas = bgCanvasRef.current;
+        if (bgCanvas) {
+          bgCanvas.style.width = `${cssWidth}px`;
+          bgCanvas.style.height = `${cssHeight}px`;
+          bgCanvas.width = cssWidth * dpr;
+          bgCanvas.height = cssHeight * dpr;
+          const bgCtx = bgCanvas.getContext('2d');
+          bgCtx.resetTransform();
+          bgCtx.scale(dpr, dpr);
+          drawGuide(bgCtx, cssWidth, cssHeight, cps);
+        }
       }
     };
 
@@ -120,7 +132,7 @@ export default function TracingCanvas({
     const { x, y } = getCoordinates(e);
     ctx.beginPath();
     ctx.moveTo(x, y);
-    checkHit(x, y);
+    if (!isEraser) checkHit(x, y);
   };
 
   const draw = (e) => {
@@ -130,35 +142,90 @@ export default function TracingCanvas({
     
     const strokeWidth = Math.max(20, Math.min(42, Math.min(dimensions.width, dimensions.height) * 0.08));
 
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = '#ff7eb3';
-    ctx.lineWidth = strokeWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-    
-    checkHit(x, y);
+    if (isEraser) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = strokeWidth * 1.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      
+      let newCps = [...checkpoints];
+      let changed = false;
+      let minStrokeIdx = progress.strokeIdx;
+      let minPtIdx = progress.ptIdx;
+      const ERASER_RADIUS = strokeWidth;
+
+      newCps.forEach((stroke, sIdx) => {
+        let strokeCopied = false;
+        stroke.forEach((pt, pIdx) => {
+          if (pt.hit) {
+            const dist = Math.hypot(x - pt.x, y - pt.y);
+            if (dist < ERASER_RADIUS) {
+              if (!strokeCopied) {
+                newCps[sIdx] = [...newCps[sIdx]];
+                strokeCopied = true;
+              }
+              newCps[sIdx][pIdx] = { ...pt, hit: false };
+              changed = true;
+              if (sIdx < minStrokeIdx || (sIdx === minStrokeIdx && pIdx < minPtIdx)) {
+                minStrokeIdx = sIdx;
+                minPtIdx = pIdx;
+              }
+            }
+          }
+        });
+      });
+      
+      if (changed) {
+        setCheckpoints(newCps);
+        setProgress({ strokeIdx: minStrokeIdx, ptIdx: minPtIdx });
+      }
+
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = '#ff7eb3';
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+      
+      checkHit(x, y);
+    }
   };
 
   const checkHit = (x, y) => {
     if (progress.strokeIdx >= checkpoints.length) return;
     
-    const currentStroke = checkpoints[progress.strokeIdx];
-    const targetPt = currentStroke[progress.ptIdx];
+    let { strokeIdx, ptIdx } = progress;
+    let currentStroke = checkpoints[strokeIdx];
+    let targetPt = currentStroke[ptIdx];
     
     const dist = Math.hypot(x - targetPt.x, y - targetPt.y);
     const HIT_RADIUS = Math.max(35, Math.min(60, dimensions.width * 0.12));
     
     if (dist < HIT_RADIUS) {
       const newCheckpoints = [...checkpoints];
-      newCheckpoints[progress.strokeIdx][progress.ptIdx].hit = true;
+      newCheckpoints[strokeIdx] = [...newCheckpoints[strokeIdx]];
+      newCheckpoints[strokeIdx][ptIdx] = { ...newCheckpoints[strokeIdx][ptIdx], hit: true };
+      
       setCheckpoints(newCheckpoints);
       
-      if (progress.ptIdx < currentStroke.length - 1) {
-        setProgress({ strokeIdx: progress.strokeIdx, ptIdx: progress.ptIdx + 1 });
-      } else {
-        setProgress({ strokeIdx: progress.strokeIdx + 1, ptIdx: 0 });
+      let nextS = strokeIdx;
+      let nextP = ptIdx + 1;
+      while (nextS < newCheckpoints.length) {
+        if (nextP >= newCheckpoints[nextS].length) {
+          nextS++;
+          nextP = 0;
+        } else if (newCheckpoints[nextS][nextP].hit) {
+          nextP++;
+        } else {
+          break;
+        }
       }
+      setProgress({ strokeIdx: nextS, ptIdx: nextP });
     }
   };
 
@@ -174,7 +241,7 @@ export default function TracingCanvas({
       setScore(null);
       const newCps = checkpoints.map(stroke => stroke.map(pt => ({ ...pt, hit: false })));
       setCheckpoints(newCps);
-      drawGuide(ctx, dimensions.width, dimensions.height, newCps);
+      ctx.clearRect(0, 0, dimensions.width, dimensions.height);
     }
   };
 
@@ -239,7 +306,6 @@ export default function TracingCanvas({
         padding: '6px 10px calc(10px + var(--safe-bottom)) 10px'
       }}
     >
-      {/* Top Number Navigation Bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -305,7 +371,6 @@ export default function TracingCanvas({
         </button>
       </div>
       
-      {/* Celebration / Score Overlay Modal */}
       {score !== null && (
         <div style={{
           position: 'absolute',
@@ -322,8 +387,7 @@ export default function TracingCanvas({
           gap: '16px',
           zIndex: 30,
           width: '90%',
-          maxWidth: '360px',
-          animation: 'bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+          maxWidth: '360px'
         }}>
           <h2 style={{ color: '#ff7eb3', margin: 0, fontSize: 'clamp(1.5rem, 6vw, 2.2rem)', fontWeight: '900' }}>
             {score === 3 ? '🎉 太棒了！' : score === 2 ? '👍 不錯喔！' : '💪 再試一次！'}
@@ -336,16 +400,11 @@ export default function TracingCanvas({
                 size={46} 
                 fill={star <= score ? '#f6d365' : '#e0e0e0'} 
                 color={star <= score ? '#f6d365' : '#e0e0e0'}
-                style={{ 
-                  animation: star <= score ? `pulse 1s ease-in-out ${star * 0.15}s infinite` : 'none' 
-                }}
               />
             ))}
           </div>
 
-          {/* Action Buttons in Modal */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '6px' }}>
-            {/* Primary Action Button: Next Number */}
             <button
               onClick={handleNextClick}
               style={{
@@ -368,7 +427,6 @@ export default function TracingCanvas({
               下一個數字 ({number + 1}) <ArrowRight size={22} />
             </button>
 
-            {/* Secondary Action Row */}
             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
               <button
                 onClick={handleReset}
@@ -390,29 +448,6 @@ export default function TracingCanvas({
               >
                 <RefreshCw size={16} /> 再寫一次
               </button>
-
-              {number > 1 && (
-                <button
-                  onClick={handlePrevClick}
-                  style={{
-                    flex: 1,
-                    padding: '10px 12px',
-                    fontSize: '14px',
-                    borderRadius: '20px',
-                    background: '#f0f4f8',
-                    color: '#555',
-                    border: 'none',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <ChevronLeft size={16} /> 上一個 ({number - 1})
-                </button>
-              )}
 
               <button
                 onClick={() => {
@@ -442,29 +477,46 @@ export default function TracingCanvas({
         </div>
       )}
 
-      {/* Drawing Canvas */}
-      <canvas
-        ref={canvasRef}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseOut={stopDrawing}
-        onTouchStart={startDrawing}
-        onTouchMove={draw}
-        onTouchEnd={stopDrawing}
-        onTouchCancel={stopDrawing}
-        style={{
-          background: 'white',
-          borderRadius: '24px',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.06)',
-          touchAction: 'none',
-          opacity: score !== null ? 0.4 : 1,
-          pointerEvents: score !== null ? 'none' : 'auto',
-          flex: 1
-        }}
-      />
+      <div style={{
+        position: 'relative',
+        flex: 1,
+        width: '100%',
+        borderRadius: '24px',
+        boxShadow: '0 8px 25px rgba(0,0,0,0.06)',
+        overflow: 'hidden',
+        background: 'white',
+        opacity: score !== null ? 0.4 : 1,
+        pointerEvents: score !== null ? 'none' : 'auto'
+      }}>
+        <canvas
+          ref={bgCanvasRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            pointerEvents: 'none'
+          }}
+        />
+        <canvas
+          ref={canvasRef}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseOut={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          onTouchCancel={stopDrawing}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            background: 'transparent',
+            touchAction: 'none',
+          }}
+        />
+      </div>
 
-      {/* Floating Action Controls */}
       <div style={{ 
         display: 'flex', 
         gap: '12px', 
@@ -474,12 +526,39 @@ export default function TracingCanvas({
         justifyContent: 'center'
       }}>
         <button
+          onClick={() => {
+            if (triggerHaptic) triggerHaptic();
+            setIsEraser(!isEraser);
+          }}
+          aria-label="橡皮擦"
+          style={{
+            flex: 0.8,
+            padding: '12px 12px',
+            fontSize: 'clamp(0.9rem, 3.5vw, 1.15rem)',
+            borderRadius: '30px',
+            background: isEraser ? '#ff9a9e' : '#f8f9fa',
+            color: isEraser ? 'white' : '#6c757d',
+            fontWeight: 'bold',
+            boxShadow: isEraser ? '0 5px 0 #ff7eb3' : '0 5px 0 #dee2e6',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            border: 'none'
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(4px)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <Eraser size={20} /> 擦除
+        </button>
+
+        <button
           onClick={handleReset}
-          aria-label="擦掉重寫"
+          aria-label="重寫"
           style={{
             flex: 1,
-            padding: '12px 18px',
-            fontSize: 'clamp(1rem, 4vw, 1.25rem)',
+            padding: '12px 12px',
+            fontSize: 'clamp(0.9rem, 3.5vw, 1.15rem)',
             borderRadius: '30px',
             background: '#ffecd2',
             color: '#fcb69f',
@@ -494,12 +573,11 @@ export default function TracingCanvas({
           onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(4px)'}
           onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(0)'}
         >
-          <RefreshCw size={20} /> 擦掉重寫
+          <RefreshCw size={20} /> 重寫
         </button>
 
         <button
           onClick={handleDone}
-          className="animate-bounceIn"
           aria-label="寫好了"
           style={{
             flex: 1.2,
