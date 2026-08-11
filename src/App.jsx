@@ -18,6 +18,7 @@ export default function App() {
   // Track active audio instances so we can stop them on navigation
   const activeAudiosRef = useRef([]);
   const heroTimeoutRef = useRef(null);
+  const pendingHeroRef = useRef(null); // Track pending hero trigger so we can cancel on navigation
 
   // Background Auto-Update Check
   useEffect(() => {
@@ -120,11 +121,10 @@ export default function App() {
 
   const playClap = useCallback(() => {
     if (!soundEnabled) return;
-    stopAllAudio(); // Stop any previous audio before playing new sounds
-    playTrackedAudio(getAssetUrl('clap.mp3'));
+    stopAllAudio();
     const praise = getRandomClap();
-    speak(praise.text);
-  }, [soundEnabled, speak, playTrackedAudio, stopAllAudio]);
+    speak(praise.text); // Only ONE voice, no layered sound effects
+  }, [soundEnabled, speak, stopAllAudio]);
 
   const handleNumberSelect = (num) => {
     triggerHaptic();
@@ -136,7 +136,9 @@ export default function App() {
   const handleNextNumber = () => {
     stopAllAudio();
     triggerHaptic();
-    // Also dismiss hero if active
+    // Cancel any pending hero animation trigger
+    if (pendingHeroRef.current) { clearTimeout(pendingHeroRef.current); pendingHeroRef.current = null; }
+    // Dismiss hero if active
     if (heroActive) {
       setHeroActive(false);
       if (heroTimeoutRef.current) clearTimeout(heroTimeoutRef.current);
@@ -150,7 +152,9 @@ export default function App() {
     if (!currentNumber || currentNumber <= 1) return;
     stopAllAudio();
     triggerHaptic();
-    // Also dismiss hero if active
+    // Cancel any pending hero animation trigger
+    if (pendingHeroRef.current) { clearTimeout(pendingHeroRef.current); pendingHeroRef.current = null; }
+    // Dismiss hero if active
     if (heroActive) {
       setHeroActive(false);
       if (heroTimeoutRef.current) clearTimeout(heroTimeoutRef.current);
@@ -162,6 +166,13 @@ export default function App() {
 
   const handleBackToGrid = () => {
     triggerHaptic();
+    // Cancel any pending hero animation trigger
+    if (pendingHeroRef.current) { clearTimeout(pendingHeroRef.current); pendingHeroRef.current = null; }
+    if (heroActive) {
+      setHeroActive(false);
+      if (heroTimeoutRef.current) clearTimeout(heroTimeoutRef.current);
+    }
+    stopAllAudio();
     setView('grid');
   };
 
@@ -186,9 +197,8 @@ export default function App() {
     setHeroActive(true);
 
     if (soundEnabled) {
-      stopAllAudio(); // Stop clap/previous audio before hero audio
-      playTrackedAudio(getAssetUrl('cheer.mp3'));
-      speak(praise.text);
+      stopAllAudio();
+      speak(praise.text); // Only ONE voice, no layered sound effects
     }
 
     // Clear previous timeout
@@ -197,7 +207,7 @@ export default function App() {
       setHeroActive(false);
       heroTimeoutRef.current = null;
     }, 4000);
-  }, [soundEnabled, stopAllAudio, playTrackedAudio, speak]);
+  }, [soundEnabled, stopAllAudio, speak]);
 
   return (
     <div style={{
@@ -336,11 +346,15 @@ export default function App() {
           <TracingCanvas 
             number={currentNumber} 
             onComplete={(finalScore) => {
-              playClap();
-              if (finalScore === 3) {
-                setTimeout(() => {
+              if (finalScore === 3 && Math.random() < 0.05) {
+                // 5% chance to trigger hero animation on perfect score
+                pendingHeroRef.current = setTimeout(() => {
+                  pendingHeroRef.current = null;
                   handleTriggerHero();
-                }, 2500); // Longer delay so clap audio finishes before hero audio starts
+                }, 600);
+              } else {
+                // Normal praise voice
+                playClap();
               }
             }}
             onNextNumber={handleNextNumber}
