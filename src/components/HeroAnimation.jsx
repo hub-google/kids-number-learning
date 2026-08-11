@@ -30,7 +30,7 @@ export default function HeroAnimation({ type }) {
     frame();
   }, []);
 
-  const heroEmoji = type === 'transformer' ? '🤖' : '🦸‍♂️';
+  const heroImage = type === 'transformer' ? '/transformer.png' : '/ultraman.png';
   const heroName = type === 'transformer' ? '變形金剛' : '奧特曼';
 
   return (
@@ -50,17 +50,25 @@ export default function HeroAnimation({ type }) {
     }}>
       
       <div className="animate-bounceIn" style={{ textAlign: 'center' }}>
-        {/* Animated Hero Icon */}
+        {/* Animated Hero Image */}
         <div 
           className="animate-shake" 
           style={{ 
-            fontSize: '150px', 
-            textShadow: '0 10px 30px rgba(0,0,0,0.2)',
             animationIterationCount: 'infinite',
-            animationDuration: '1s'
+            animationDuration: '1s',
+            display: 'inline-block'
           }}
         >
-          {heroEmoji}
+          <img 
+            src={heroImage} 
+            alt={heroName}
+            style={{
+              width: '250px',
+              height: '250px',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.2))'
+            }}
+          />
         </div>
         
         {/* Glowing Text */}

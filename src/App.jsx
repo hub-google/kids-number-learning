@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Volume2, VolumeX, Home } from 'lucide-react';
 import NumberGrid from './components/NumberGrid';
 import TracingCanvas from './components/TracingCanvas';
 import HeroAnimation from './components/HeroAnimation';
@@ -24,8 +25,11 @@ export default function App() {
 
   const playClap = () => {
     if (!soundEnabled) return;
-    // In a real app, you'd load a real audio file. For this demo we'll use speech synthesis as a fallback if no audio file exists, or just a simple beep.
-    speak("你好厲害！拍拍手！");
+    const audio = new Audio('/clap.mp3');
+    audio.play().catch(() => {
+      // Fallback to speech synthesis if audio file not found
+      speak("你好厲害！拍拍手！");
+    });
   };
 
   const handleNumberSelect = (num) => {
@@ -39,7 +43,10 @@ export default function App() {
     setHeroType(Math.random() > 0.5 ? 'transformer' : 'ultraman');
     setHeroActive(true);
     if (soundEnabled) {
-      speak("太棒了！為你拍拍手！繼續加油！");
+      const audio = new Audio('/cheer.mp3');
+      audio.play().catch(() => {
+        speak("太棒了！為你拍拍手！繼續加油！");
+      });
     }
     setTimeout(() => {
       setHeroActive(false);
@@ -76,10 +83,14 @@ export default function App() {
               borderRadius: '20px',
               background: soundEnabled ? '#a8edea' : '#fed6e3',
               fontWeight: 'bold',
-              color: '#333'
+              color: '#333',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}
           >
-            {soundEnabled ? '🔊 音效開' : '🔇 音效關'}
+            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />} 
+            {soundEnabled ? '音效開' : '音效關'}
           </button>
           {view === 'trace' && (
             <button
@@ -89,10 +100,13 @@ export default function App() {
                 borderRadius: '20px',
                 background: '#ff9a9e',
                 color: 'white',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
-              🏠 回到主格
+              <Home size={20} /> 回到主格
             </button>
           )}
         </div>

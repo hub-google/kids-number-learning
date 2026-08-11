@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled, speak }) {
   const [start, setStart] = useState(1);
@@ -59,6 +60,24 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
         <label style={{ fontWeight: 'bold', color: '#ff9a9e' }}>
           到: <input type="number" value={end} onChange={(e) => setEnd(Number(e.target.value) || 1000)} style={{ width: '80px', borderRadius: '10px', border: '2px solid #fecfef', padding: '5px', textAlign: 'center', fontSize: '18px' }}/>
         </label>
+        <label style={{ fontWeight: 'bold', color: '#a1c4fd', marginLeft: '10px' }}>
+          快速跳行:
+          <select 
+            value={currentRowStart} 
+            onChange={(e) => setCurrentRowStart(Number(e.target.value))}
+            style={{ marginLeft: '10px', borderRadius: '10px', border: '2px solid #a1c4fd', padding: '5px', fontSize: '16px' }}
+          >
+            {Array.from({ length: totalRows }, (_, i) => {
+              const rowStart = start + i * 10;
+              const rowEnd = Math.min(rowStart + 9, end);
+              return (
+                <option key={rowStart} value={rowStart}>
+                  第 {i + 1} 行 ({rowStart} ~ {rowEnd})
+                </option>
+              );
+            })}
+          </select>
+        </label>
       </div>
 
       {/* Grid Area */}
@@ -82,7 +101,7 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
             opacity: currentRowStart <= start ? 0.5 : 1
           }}
         >
-          ⬅️
+          <ChevronLeft size={40} />
         </button>
 
         {/* 10 Numbers Container */}
@@ -151,7 +170,7 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
             opacity: currentRowStart + 10 > end ? 0.5 : 1
           }}
         >
-          ➡️
+          <ChevronRight size={40} />
         </button>
 
       </div>
