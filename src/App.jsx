@@ -120,10 +120,11 @@ export default function App() {
 
   const playClap = useCallback(() => {
     if (!soundEnabled) return;
+    stopAllAudio(); // Stop any previous audio before playing new sounds
     playTrackedAudio(getAssetUrl('clap.mp3'));
     const praise = getRandomClap();
     speak(praise.text);
-  }, [soundEnabled, speak, playTrackedAudio]);
+  }, [soundEnabled, speak, playTrackedAudio, stopAllAudio]);
 
   const handleNumberSelect = (num) => {
     triggerHaptic();
@@ -173,7 +174,7 @@ export default function App() {
     }
   }, [stopAllAudio]);
 
-  const handleTriggerHero = () => {
+  const handleTriggerHero = useCallback(() => {
     const hero = Math.random() > 0.5 ? 'transformer' : 'ultraman';
     setHeroType(hero);
     triggerHaptic();
@@ -185,6 +186,7 @@ export default function App() {
     setHeroActive(true);
 
     if (soundEnabled) {
+      stopAllAudio(); // Stop clap/previous audio before hero audio
       playTrackedAudio(getAssetUrl('cheer.mp3'));
       speak(praise.text);
     }
@@ -195,7 +197,7 @@ export default function App() {
       setHeroActive(false);
       heroTimeoutRef.current = null;
     }, 4000);
-  };
+  }, [soundEnabled, stopAllAudio, playTrackedAudio, speak]);
 
   return (
     <div style={{
@@ -338,7 +340,7 @@ export default function App() {
               if (finalScore === 3) {
                 setTimeout(() => {
                   handleTriggerHero();
-                }, 1200);
+                }, 2500); // Longer delay so clap audio finishes before hero audio starts
               }
             }}
             onNextNumber={handleNextNumber}
