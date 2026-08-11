@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { Star, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, Home, ArrowRight, Eraser } from 'lucide-react';
-import { generateCheckpoints } from '../utils/strokeData';
+import { generateCheckpoints, drawDigitPath, DIGIT_PATHS } from '../utils/strokeData';
 
 export default function TracingCanvas({
   number,
@@ -76,97 +76,96 @@ export default function TracingCanvas({
     return () => window.removeEventListener('resize', resizeCanvas);
   }, [number]);
 
-  const drawStar = (context, cx, cy, radius) => {
-    const spikes = 5;
-    const outerRadius = radius;
-    const innerRadius = radius * 0.45;
-    let rot = Math.PI / 2 * 3;
-    let step = Math.PI / spikes;
-
-    context.beginPath();
-    context.moveTo(cx, cy - outerRadius);
-    for (let i = 0; i < spikes; i++) {
-      let x = cx + Math.cos(rot) * outerRadius;
-      let y = cy + Math.sin(rot) * outerRadius;
-      context.lineTo(x, y);
-      rot += step;
-
-      x = cx + Math.cos(rot) * innerRadius;
-      y = cy + Math.sin(rot) * innerRadius;
-      context.lineTo(x, y);
-      rot += step;
-    }
-    context.lineTo(cx, cy - outerRadius);
-    context.closePath();
-    context.fillStyle = '#ef4444'; // Bright Red Star
-    context.fill();
-    context.strokeStyle = '#ffffff';
-    context.lineWidth = 1.5;
-    context.stroke();
-  };
-
   const drawGuide = (context, w, h, cps) => {
     if (!context) return;
     context.clearRect(0, 0, w, h);
 
-    // 1. Draw Tianzige (田字格) Grid
+    // ── 1. 田字格 ──────────────────────────────────────────────
     const padX = w * 0.05;
     const padY = h * 0.05;
     const gridW = w - padX * 2;
     const gridH = h - padY * 2;
 
-    // Draw Outer Box
-    context.strokeStyle = '#334155';
-    context.lineWidth = 4;
+    context.save();
+    context.strokeStyle = '#d1d5db';
+    context.lineWidth = 2.5;
     context.setLineDash([]);
     context.strokeRect(padX, padY, gridW, gridH);
 
-    // Draw Dashed Cross Lines Inside
-    context.strokeStyle = '#94a3b8';
-    context.lineWidth = 1.5;
-    context.setLineDash([8, 8]);
-    
-    // Horizontal center line
+    context.strokeStyle = '#e5e7eb';
+    context.lineWidth = 1.2;
+    context.setLineDash([7, 7]);
     context.beginPath();
     context.moveTo(padX, padY + gridH / 2);
     context.lineTo(padX + gridW, padY + gridH / 2);
-    context.stroke();
-
-    // Vertical center line
-    context.beginPath();
     context.moveTo(padX + gridW / 2, padY);
     context.lineTo(padX + gridW / 2, padY + gridH);
     context.stroke();
-
     context.setLineDash([]);
-    
-    // 2. Draw Stroke Guide Lines
-    const strokeWidth = Math.max(22, Math.min(46, Math.min(w, h) * 0.09));
+    context.restore();
 
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.lineWidth = strokeWidth;
-    
-    cps.forEach((stroke) => {
-      // Guide stroke path (cyan dotted line)
-      context.beginPath();
-      context.setLineDash([strokeWidth * 0.35, strokeWidth * 0.5]);
-      context.strokeStyle = '#38bdf8';
-      stroke.forEach((pt, idx) => {
-        if (idx === 0) context.moveTo(pt.x, pt.y);
-        else context.lineTo(pt.x, pt.y);
-      });
-      context.stroke();
-      
-      // Draw Red Star at start of stroke & key points
-      stroke.forEach((pt) => {
-        if (pt.isStart || pt.isEnd) {
-          drawStar(context, pt.x, pt.y, strokeWidth * 0.55);
+    // ── 2. 數字輪廓 (用貝塞爾曲線畫出正確的數字形狀) ────────────
+    const numStr = String(number);
+    const digits = numStr.split('');
+    const numDigits = digits.length;
+    const pX = w * (numDigits === 1 ? 0.18 : 0.06);
+    const pY = h * 0.08;
+    const useW = w - pX * 2;
+    const useH = h - pY * 2;
+    const gap = Math.min(16, useW * 0.04);
+    const dW = (useW - gap * (numDigits - 1)) / numDigits;
+
+    const guideStrokeW = Math.max(18, Math.min(38, dW * 0.18));
+
+    digits.forEach((digit, dIdx) => {
+      const paths = DIGIT_PATHS[digit] || DIGIT_PATHS['0'];
+      const oX = pX + dIdx * (dW + gap);
+      const oY = pY;
+
+      paths.forEach((cmds, sIdx) => {
+        // Shadow / glow for readability
+        context.save();
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        context.lineWidth = guideStrokeW + 6;
+        context.strokeStyle = 'rgba(0,0,0,0.06)';
+        context.setLineDash([]);
+        drawDigitPath(context, cmds, oX, oY, dW, useH);
+        context.stroke();
+
+        // Main guide line – light blue dashed
+        context.lineWidth = guideStrokeW;
+        context.strokeStyle = 'rgba(147,197,253,0.75)'; // light blue
+        context.setLineDash([guideStrokeW * 0.6, guideStrokeW * 0.5]);
+        drawDigitPath(context, cmds, oX, oY, dW, useH);
+        context.stroke();
+        context.setLineDash([]);
+        context.restore();
+
+        // Start-dot badge with stroke number
+        const firstCmd = cmds[0];
+        if (firstCmd && firstCmd.cmd === 'M') {
+          const bx = oX + firstCmd.x * dW;
+          const by = oY + firstCmd.y * useH;
+          const br = Math.max(10, guideStrokeW * 0.55);
+          const colors = ['#ef4444', '#f97316', '#8b5cf6'];
+          context.save();
+          context.beginPath();
+          context.arc(bx, by, br, 0, Math.PI * 2);
+          context.fillStyle = colors[sIdx % colors.length];
+          context.fill();
+          context.strokeStyle = '#fff';
+          context.lineWidth = 2;
+          context.stroke();
+          context.fillStyle = '#fff';
+          context.font = `bold ${Math.round(br * 1.15)}px system-ui,sans-serif`;
+          context.textAlign = 'center';
+          context.textBaseline = 'middle';
+          context.fillText(String(sIdx + 1), bx, by + 1);
+          context.restore();
         }
       });
     });
-    
-    context.setLineDash([]);
   };
 
   const getCoordinates = (e) => {
