@@ -8,6 +8,44 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>兒童數字學習</title>
+    <script>
+      (function() {
+        // 自動檢測伺服器最新版本 script
+        var versionUrl = './version.json?t=' + Date.now();
+        fetch(versionUrl, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data && data.version) {
+              var currentVer = localStorage.getItem('app_version');
+              if (currentVer && currentVer !== data.version) {
+                console.log('New version detected:', data.version, 'Old version:', currentVer);
+                localStorage.setItem('app_version', data.version);
+                // 使用帶 _v 參數強制載入最新 HTML，完全無視手機瀏覽器快取
+                var url = new URL(window.location.href);
+                url.searchParams.set('_v', data.version);
+                window.location.replace(url.toString());
+              } else {
+                localStorage.setItem('app_version', data.version);
+              }
+            }
+          })
+          .catch(function(err) {
+            console.warn('Version check error:', err);
+          });
+
+        // 自動清理舊的 Service Worker 和 Caches 快取
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (var reg of registrations) { reg.unregister(); }
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            for (var name of names) { caches.delete(name); }
+          });
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

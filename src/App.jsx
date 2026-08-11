@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Volume2, VolumeX, Home } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Volume2, VolumeX, Home, RotateCw } from 'lucide-react';
 import NumberGrid from './components/NumberGrid';
 import TracingCanvas from './components/TracingCanvas';
 import HeroAnimation from './components/HeroAnimation';
@@ -12,6 +12,46 @@ export default function App() {
 
   // Global settings
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Background Auto-Update Check
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.version) {
+          const localVer = localStorage.getItem('app_version');
+          if (localVer && localVer !== data.version) {
+            localStorage.setItem('app_version', data.version);
+            const url = new URL(window.location.href);
+            url.searchParams.set('_v', data.version);
+            window.location.replace(url.toString());
+          } else {
+            localStorage.setItem('app_version', data.version);
+          }
+        }
+      } catch (e) {
+        // Ignore network check failure
+      }
+    };
+
+    checkVersion();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkVersion();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const interval = setInterval(checkVersion, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   const triggerHaptic = () => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -131,6 +171,38 @@ export default function App() {
         </h1>
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button 
+            onClick={() => {
+              triggerHaptic();
+              const url = new URL(window.location.href);
+              url.searchParams.set('_v', Date.now().toString());
+              if ('caches' in window) {
+                caches.keys().then((names) => {
+                  names.forEach((name) => caches.delete(name));
+                });
+              }
+              window.location.replace(url.toString());
+            }}
+            aria-label="刷新最新版"
+            style={{
+              padding: '6px 10px',
+              borderRadius: '20px',
+              background: '#e0c3fc',
+              fontWeight: 'bold',
+              fontSize: 'clamp(0.75rem, 3vw, 0.9rem)',
+              color: '#4a154b',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <RotateCw size={15} />
+            <span>刷新</span>
+          </button>
+
           <button 
             onClick={() => {
               triggerHaptic();
