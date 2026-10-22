@@ -305,7 +305,7 @@ export default function TracingCanvas({
 
   return (
     <div 
-      ref={containerRef} 
+      ref={null} 
       style={{ 
         width: '100%', 
         height: '100%', 

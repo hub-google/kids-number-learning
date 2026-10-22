@@ -40,6 +40,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Browser smoke tests
+        run: |
+          npm install --no-save --package-lock=false playwright-core@1.56.1
+          npm run test:browser
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
