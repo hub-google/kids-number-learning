@@ -48,7 +48,7 @@ async function main() {
     assert.ok(area && area.width > 100 && area.height > 100, 'Tracing canvas is visible');
 
     await desktop.getByRole('button', { name: '寫好了' }).click();
-    await desktop.getByRole('button', { name: /下一個數字/ }).click();
+    await desktop.getByRole('button', { name: '下一個數字 (2)', exact: true }).click();
     await desktop.getByText('數字 2', { exact: true }).waitFor();
     await desktop.getByRole('button', { name: '回到主頁格' }).click();
     await desktop.getByRole('button', { name: '1', exact: true }).waitFor();
