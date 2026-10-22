@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { Star, RefreshCw, CheckCircle2, ChevronLeft, ChevronRight, Home, ArrowRight, Eraser } from 'lucide-react';
 import { generateCheckpoints, drawDigitPath, DIGIT_PATHS } from '../utils/strokeData';
 import { getRandomScoreTitle } from '../utils/praiseData';
+import { advanceTracing, eraseTracing, getTracingScore } from '../utils/tracingLogic';
 
 export default function TracingCanvas({
   number,
@@ -16,64 +17,65 @@ export default function TracingCanvas({
 }) {
   const bgCanvasRef = useRef(null);
   const canvasRef = useRef(null);
-  const containerRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const canvasAreaRef = useRef(null);
+  const activePointerRef = useRef(null);
+  const lastPointRef = useRef(null);
   const [isEraser, setIsEraser] = useState(false);
   const [ctx, setCtx] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
-  const [progress, setProgress] = useState({ strokeIdx: 0, ptIdx: 0 });
   const [score, setScore] = useState(null);
   const [scoreTitle, setScoreTitle] = useState('');
   const [dimensions, setDimensions] = useState({ width: 300, height: 400 });
 
-  // Initialize Canvas with High-DPI Retina Support
+  // The canvases must match the actual drawing area, not the whole page.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !containerRef.current) return;
-    
+    const bgCanvas = bgCanvasRef.current;
+    const area = canvasAreaRef.current;
+    if (!canvas || !bgCanvas || !area) return;
     const context = canvas.getContext('2d');
+    const bgCtx = bgCanvas.getContext('2d');
+    if (!context || !bgCtx) return;
 
+    let lastWidth = 0;
+    let lastHeight = 0;
+    let lastDpr = 0;
     const resizeCanvas = () => {
-      if (containerRef.current && canvas) {
-        const dpr = window.devicePixelRatio || 1;
-        const rect = containerRef.current.getBoundingClientRect();
-        
-        // Reserve height for top nav bar (~40px) & bottom action bar (~70px)
-        const cssWidth = rect.width;
-        const cssHeight = Math.max(200, rect.height - 80);
-        
-        canvas.style.width = `${cssWidth}px`;
-        canvas.style.height = `${cssHeight}px`;
+      const rect = area.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      const dpr = window.devicePixelRatio || 1;
+      if (width < 1 || height < 1) return;
+      if (width === lastWidth && height === lastHeight && dpr === lastDpr) return;
+      lastWidth = width;
+      lastHeight = height;
+      lastDpr = dpr;
 
-        canvas.width = cssWidth * dpr;
-        canvas.height = cssHeight * dpr;
-
-        context.resetTransform();
-        context.scale(dpr, dpr);
-
-        setCtx(context);
-        setDimensions({ width: cssWidth, height: cssHeight });
-
-        const cps = generateCheckpoints(number, cssWidth, cssHeight);
-        setCheckpoints(cps);
-        setProgress({ strokeIdx: 0, ptIdx: 0 });
-        setScore(null);
-        
-        const bgCanvas = bgCanvasRef.current;
-        if (bgCanvas) {
-          bgCanvas.style.width = `${cssWidth}px`;
-          bgCanvas.style.height = `${cssHeight}px`;
-          bgCanvas.width = cssWidth * dpr;
-          bgCanvas.height = cssHeight * dpr;
-          const bgCtx = bgCanvas.getContext('2d');
-          bgCtx.resetTransform();
-          bgCtx.scale(dpr, dpr);
-          drawGuide(bgCtx, cssWidth, cssHeight, cps);
-        }
+      for (const el of [canvas, bgCanvas]) {
+        el.style.width = `${width}px`;
+        el.style.height = `${height}px`;
+        el.width = Math.round(width * dpr);
+        el.height = Math.round(height * dpr);
+        el.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
       }
+
+      const cps = generateCheckpoints(number, width, height);
+      setCtx(context);
+      setDimensions({ width, height });
+      setCheckpoints(cps);
+      setScore(null);
+      setScoreTitle('');
+      activePointerRef.current = null;
+      lastPointRef.current = null;
+      drawGuide(bgCtx, width, height, cps);
     };
 
     resizeCanvas();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(resizeCanvas);
+      observer.observe(area);
+      return () => observer.disconnect();
+    }
     window.addEventListener('resize', resizeCanvas);
     return () => window.removeEventListener('resize', resizeCanvas);
   }, [number]);
@@ -181,135 +183,73 @@ export default function TracingCanvas({
   };
 
   const getCoordinates = (e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-
-    if (e.touches && e.touches.length > 0) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top
-      };
-    }
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
+    const rect = canvasRef.current.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
+  const strokeWidth = Math.max(16, Math.min(38, Math.min(dimensions.width, dimensions.height) * 0.07));
+  const hitRadius = Math.max(16, Math.min(30, dimensions.width / String(number).length * 0.16));
+
   const startDrawing = (e) => {
+    if (score !== null || !ctx || activePointerRef.current !== null) return;
     e.preventDefault();
-    if (score !== null || !ctx) return;
     if (triggerHaptic) triggerHaptic();
-    setIsDrawing(true);
-    const { x, y } = getCoordinates(e);
+    activePointerRef.current = e.pointerId;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const point = getCoordinates(e);
+    lastPointRef.current = point;
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    if (!isEraser) checkHit(x, y);
+    ctx.moveTo(point.x, point.y);
+    if (isEraser) {
+      setCheckpoints(prev => eraseTracing(prev, point, point, strokeWidth));
+    } else {
+      setCheckpoints(prev => advanceTracing(prev, point, point, hitRadius));
+      ctx.fillStyle = '#ff7eb3';
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, strokeWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(point.x, point.y);
+    }
   };
 
   const draw = (e) => {
-    if (!isDrawing || !ctx) return;
+    if (activePointerRef.current !== e.pointerId || !ctx) return;
     e.preventDefault();
-    const { x, y } = getCoordinates(e);
-    
-    const strokeWidth = Math.max(20, Math.min(42, Math.min(dimensions.width, dimensions.height) * 0.08));
+    const point = getCoordinates(e);
+    const previous = lastPointRef.current || point;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineTo(point.x, point.y);
+    ctx.lineWidth = isEraser ? strokeWidth * 1.5 : strokeWidth;
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = '#ff7eb3';
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
 
     if (isEraser) {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = strokeWidth * 1.5;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      ctx.globalCompositeOperation = 'source-over';
-      
-      let newCps = [...checkpoints];
-      let changed = false;
-      let minStrokeIdx = progress.strokeIdx;
-      let minPtIdx = progress.ptIdx;
-      const ERASER_RADIUS = strokeWidth;
-
-      newCps.forEach((stroke, sIdx) => {
-        let strokeCopied = false;
-        stroke.forEach((pt, pIdx) => {
-          if (pt.hit) {
-            const dist = Math.hypot(x - pt.x, y - pt.y);
-            if (dist < ERASER_RADIUS) {
-              if (!strokeCopied) {
-                newCps[sIdx] = [...newCps[sIdx]];
-                strokeCopied = true;
-              }
-              newCps[sIdx][pIdx] = { ...pt, hit: false };
-              changed = true;
-              if (sIdx < minStrokeIdx || (sIdx === minStrokeIdx && pIdx < minPtIdx)) {
-                minStrokeIdx = sIdx;
-                minPtIdx = pIdx;
-              }
-            }
-          }
-        });
-      });
-      
-      if (changed) {
-        setCheckpoints(newCps);
-        setProgress({ strokeIdx: minStrokeIdx, ptIdx: minPtIdx });
-      }
-
+      setCheckpoints(prev => eraseTracing(prev, previous, point, strokeWidth));
     } else {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = '#ff7eb3';
-      ctx.lineWidth = strokeWidth;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-      
-      checkHit(x, y);
+      setCheckpoints(prev => advanceTracing(prev, previous, point, hitRadius));
     }
+    lastPointRef.current = point;
   };
 
-  const checkHit = (x, y) => {
-    if (!checkpoints || checkpoints.length === 0) return;
-    
-    const HIT_RADIUS = Math.max(45, Math.min(75, dimensions.width * 0.16));
-    let updated = false;
-    const newCheckpoints = checkpoints.map(stroke => [...stroke]);
-    
-    newCheckpoints.forEach((stroke, sIdx) => {
-      stroke.forEach((pt, pIdx) => {
-        if (!pt.hit) {
-          const dist = Math.hypot(x - pt.x, y - pt.y);
-          if (dist < HIT_RADIUS) {
-            newCheckpoints[sIdx][pIdx] = { ...pt, hit: true };
-            updated = true;
-
-            // Auto fill previous unhit points in the same stroke up to this point
-            for (let prevIdx = 0; prevIdx < pIdx; prevIdx++) {
-              if (!newCheckpoints[sIdx][prevIdx].hit) {
-                newCheckpoints[sIdx][prevIdx] = { ...newCheckpoints[sIdx][prevIdx], hit: true };
-              }
-            }
-          }
-        }
-      });
-    });
-
-    if (updated) {
-      setCheckpoints(newCheckpoints);
+  const stopDrawing = (e) => {
+    if (e && activePointerRef.current !== e.pointerId) return;
+    if (e && e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
     }
-  };
-
-  const stopDrawing = () => {
-    setIsDrawing(false);
+    activePointerRef.current = null;
+    lastPointRef.current = null;
     if (ctx) ctx.closePath();
   };
 
   const handleReset = () => {
     if (triggerHaptic) triggerHaptic();
     if (ctx && canvasRef.current) {
-      setProgress({ strokeIdx: 0, ptIdx: 0 });
       setScore(null);
+      setScoreTitle('');
       const newCps = checkpoints.map(stroke => stroke.map(pt => ({ ...pt, hit: false })));
       setCheckpoints(newCps);
       ctx.clearRect(0, 0, dimensions.width, dimensions.height);
@@ -322,20 +262,7 @@ export default function TracingCanvas({
       return;
     }
 
-    let totalPts = 0;
-    let hitPts = 0;
-    checkpoints.forEach(stroke => {
-      stroke.forEach(pt => {
-        totalPts++;
-        if (pt.hit) hitPts++;
-      });
-    });
-
-    const hitRatio = totalPts === 0 ? 0 : hitPts / totalPts;
-    let finalScore = 1;
-    if (hitRatio >= 0.65) finalScore = 3;
-    else if (hitRatio >= 0.35) finalScore = 2;
-    
+    const finalScore = getTracingScore(checkpoints);
     setScore(finalScore);
     setScoreTitle(getRandomScoreTitle(finalScore));
 
@@ -435,18 +362,20 @@ export default function TracingCanvas({
 
         <button
           onClick={handleNextClick}
+          disabled={number >= 1000}
           aria-label="下一個數字"
           style={{
             padding: '6px 12px',
             borderRadius: '20px',
-            background: '#ff9a9e',
+            background: number >= 1000 ? '#e0e0e0' : '#ff9a9e',
             color: 'white',
             fontWeight: 'bold',
             fontSize: '14px',
             display: 'flex',
             alignItems: 'center',
             gap: '2px',
-            cursor: 'pointer',
+            opacity: number >= 1000 ? 0.4 : 1,
+            cursor: number >= 1000 ? 'not-allowed' : 'pointer',
             border: 'none',
             boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
           }}
@@ -490,7 +419,7 @@ export default function TracingCanvas({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '6px' }}>
             <button
-              onClick={handleNextClick}
+              onClick={number >= 1000 ? onBackToGrid : handleNextClick}
               style={{
                 width: '100%',
                 padding: '12px 20px',
@@ -508,7 +437,7 @@ export default function TracingCanvas({
                 gap: '8px'
               }}
             >
-              下一個數字 ({number + 1}) <ArrowRight size={22} />
+              {number >= 1000 ? '全部完成！回主頁' : `下一個數字 (${number + 1})`} <ArrowRight size={22} />
             </button>
 
             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
@@ -561,9 +490,10 @@ export default function TracingCanvas({
         </div>
       )}
 
-      <div style={{
+      <div ref={canvasAreaRef} style={{
         position: 'relative',
         flex: 1,
+        minHeight: 0,
         width: '100%',
         borderRadius: '24px',
         boxShadow: '0 8px 25px rgba(0,0,0,0.06)',
@@ -583,14 +513,11 @@ export default function TracingCanvas({
         />
         <canvas
           ref={canvasRef}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseOut={stopDrawing}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={stopDrawing}
-          onTouchCancel={stopDrawing}
+          onPointerDown={startDrawing}
+          onPointerMove={draw}
+          onPointerUp={stopDrawing}
+          onPointerCancel={stopDrawing}
+          onLostPointerCapture={stopDrawing}
           style={{
             position: 'absolute',
             top: 0,
