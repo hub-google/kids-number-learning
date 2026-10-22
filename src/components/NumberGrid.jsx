@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { clampNumber, normalizeRange } from '../utils/numberRange';
 
 export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled, speak, triggerHaptic }) {
   const [start, setStart] = useState(1);
   const [end, setEnd] = useState(1000);
   const [currentRowStart, setCurrentRowStart] = useState(1);
   const [rowsNavigated, setRowsNavigated] = useState(0);
+  const safeRange = normalizeRange(start, end);
+  const safeStart = safeRange.start;
+  const safeEnd = safeRange.end;
 
   // Responsive screen detection
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
@@ -20,8 +24,8 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
 
   // Reset current view start when range start changes
   useEffect(() => {
-    setCurrentRowStart(start);
-  }, [start]);
+    setCurrentRowStart(safeStart);
+  }, [safeStart]);
 
   // Numbers per page depending on screen width
   // Desktop: 2 rows of 10 = 20 numbers
@@ -32,7 +36,7 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
 
   // Navigate forward
   const handleNextPage = () => {
-    if (currentRowStart + numbersPerPage <= end) {
+    if (currentRowStart + numbersPerPage <= safeEnd) {
       if (triggerHaptic) triggerHaptic();
       const nextStart = currentRowStart + numbersPerPage;
       setCurrentRowStart(nextStart);
@@ -46,7 +50,7 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
 
   // Navigate backward
   const handlePrevPage = () => {
-    if (currentRowStart - numbersPerPage >= start) {
+    if (currentRowStart - numbersPerPage >= safeStart) {
       if (triggerHaptic) triggerHaptic();
       setCurrentRowStart(prev => prev - numbersPerPage);
       const newCount = rowsNavigated + (numbersPerPage / 10);
@@ -58,32 +62,30 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
   };
 
   // Touch Swipe Gesture Handling
-  const touchStartX = useRef(null);
+  const touchStart = useRef(null);
   const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diffX = touchStartX.current - touchEndX;
-    touchStartX.current = null;
-
-    if (diffX > 50) {
-      // Swiped Left -> Next
-      handleNextPage();
-    } else if (diffX < -50) {
-      // Swiped Right -> Prev
-      handlePrevPage();
+    if (e.target.closest?.('button, input, select, label')) {
+      touchStart.current = null;
+      return;
     }
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const handleTouchEnd = (e) => {
+    if (!touchStart.current) return;
+    const dx = touchStart.current.x - e.changedTouches[0].clientX;
+    const dy = touchStart.current.y - e.changedTouches[0].clientY;
+    touchStart.current = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx > 0) handleNextPage();
+    else handlePrevPage();
   };
 
-  const totalNumbers = Math.max(0, end - start + 1);
+  const totalNumbers = safeEnd - safeStart + 1;
   const totalPages = Math.ceil(totalNumbers / numbersPerPage);
-  const currentPage = Math.floor((currentRowStart - start) / numbersPerPage) + 1;
+  const currentPage = Math.floor((currentRowStart - safeStart) / numbersPerPage) + 1;
 
   // Generate current page's numbers
-  const pageNumbers = Array.from({ length: numbersPerPage }, (_, i) => currentRowStart + i).filter(n => n <= end);
+  const pageNumbers = Array.from({ length: numbersPerPage }, (_, i) => currentRowStart + i).filter(n => n <= safeEnd);
 
   // Group page numbers into rows based on column count
   const rows = [];
@@ -96,6 +98,20 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
     setStart(presetStart);
     setEnd(presetEnd);
     setCurrentRowStart(presetStart);
+    setRowsNavigated(0);
+  };
+
+  const updateStart = (value) => {
+    const nextStart = clampNumber(value);
+    setStart(nextStart);
+    setEnd(previous => Math.max(nextStart, previous));
+    setCurrentRowStart(nextStart);
+    setRowsNavigated(0);
+  };
+  const updateEnd = (value) => {
+    setEnd(Math.max(safeStart, clampNumber(value, 1000)));
+    setCurrentRowStart(safeStart);
+    setRowsNavigated(0);
   };
 
   return (
@@ -170,7 +186,8 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
             <input 
               type="number" 
               value={start} 
-              onChange={(e) => setStart(Number(e.target.value) || 1)} 
+              min="1" max="1000" step="1"
+              onChange={(e) => updateStart(e.target.value)} 
               style={{ width: '60px', borderRadius: '10px', border: '2px solid #fecfef', padding: '3px 6px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold', outline: 'none' }}
             />
           </label>
@@ -180,7 +197,8 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
             <input 
               type="number" 
               value={end} 
-              onChange={(e) => setEnd(Number(e.target.value) || 1000)} 
+              min="1" max="1000" step="1"
+              onChange={(e) => updateEnd(e.target.value)} 
               style={{ width: '65px', borderRadius: '10px', border: '2px solid #fecfef', padding: '3px 6px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold', outline: 'none' }}
             />
           </label>
@@ -196,8 +214,8 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
               style={{ borderRadius: '10px', border: '2px solid #a1c4fd', padding: '3px 6px', fontSize: '14px', fontWeight: 'bold', background: 'white', outline: 'none' }}
             >
               {Array.from({ length: totalPages }, (_, i) => {
-                const pStart = start + i * numbersPerPage;
-                const pEnd = Math.min(pStart + numbersPerPage - 1, end);
+                const pStart = safeStart + i * numbersPerPage;
+                const pEnd = Math.min(pStart + numbersPerPage - 1, safeEnd);
                 return (
                   <option key={pStart} value={pStart}>
                     第 {i + 1} 頁 ({pStart} ~ {pEnd})
@@ -224,11 +242,11 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
         {!isMobile && (
           <button 
             onClick={handlePrevPage} 
-            disabled={currentRowStart <= start}
+            disabled={currentRowStart <= safeStart}
             aria-label="上一頁"
             style={{
               fontSize: '32px',
-              background: currentRowStart <= start ? '#e0e0e0' : '#ff9a9e',
+              background: currentRowStart <= safeStart ? '#e0e0e0' : '#ff9a9e',
               color: 'white',
               width: '54px',
               height: '54px',
@@ -237,8 +255,8 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-              cursor: currentRowStart <= start ? 'not-allowed' : 'pointer',
-              opacity: currentRowStart <= start ? 0.4 : 1,
+              cursor: currentRowStart <= safeStart ? 'not-allowed' : 'pointer',
+              opacity: currentRowStart <= safeStart ? 0.4 : 1,
               flexShrink: 0,
               marginRight: '12px'
             }}
@@ -318,11 +336,11 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
         {!isMobile && (
           <button 
             onClick={handleNextPage}
-            disabled={currentRowStart + numbersPerPage > end}
+            disabled={currentRowStart + numbersPerPage > safeEnd}
             aria-label="下一頁"
             style={{
               fontSize: '32px',
-              background: currentRowStart + numbersPerPage > end ? '#e0e0e0' : '#ff9a9e',
+              background: currentRowStart + numbersPerPage > safeEnd ? '#e0e0e0' : '#ff9a9e',
               color: 'white',
               width: '54px',
               height: '54px',
@@ -331,8 +349,8 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-              cursor: currentRowStart + numbersPerPage > end ? 'not-allowed' : 'pointer',
-              opacity: currentRowStart + numbersPerPage > end ? 0.4 : 1,
+              cursor: currentRowStart + numbersPerPage > safeEnd ? 'not-allowed' : 'pointer',
+              opacity: currentRowStart + numbersPerPage > safeEnd ? 0.4 : 1,
               flexShrink: 0,
               marginLeft: '12px'
             }}
@@ -356,19 +374,19 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
         {/* Prev Mobile Arrow */}
         <button 
           onClick={handlePrevPage} 
-          disabled={currentRowStart <= start}
+          disabled={currentRowStart <= safeStart}
           aria-label="上一頁"
           style={{
             padding: '8px 16px',
             borderRadius: '25px',
-            background: currentRowStart <= start ? '#e0e0e0' : '#ff9a9e',
+            background: currentRowStart <= safeStart ? '#e0e0e0' : '#ff9a9e',
             color: 'white',
             fontWeight: 'bold',
             fontSize: '14px',
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
-            opacity: currentRowStart <= start ? 0.4 : 1,
+            opacity: currentRowStart <= safeStart ? 0.4 : 1,
             boxShadow: '0 3px 8px rgba(0,0,0,0.1)'
           }}
         >
@@ -392,19 +410,19 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
         {/* Next Mobile Arrow */}
         <button 
           onClick={handleNextPage}
-          disabled={currentRowStart + numbersPerPage > end}
+          disabled={currentRowStart + numbersPerPage > safeEnd}
           aria-label="下一頁"
           style={{
             padding: '8px 16px',
             borderRadius: '25px',
-            background: currentRowStart + numbersPerPage > end ? '#e0e0e0' : '#ff9a9e',
+            background: currentRowStart + numbersPerPage > safeEnd ? '#e0e0e0' : '#ff9a9e',
             color: 'white',
             fontWeight: 'bold',
             fontSize: '14px',
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
-            opacity: currentRowStart + numbersPerPage > end ? 0.4 : 1,
+            opacity: currentRowStart + numbersPerPage > safeEnd ? 0.4 : 1,
             boxShadow: '0 3px 8px rgba(0,0,0,0.1)'
           }}
         >

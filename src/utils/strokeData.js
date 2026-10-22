@@ -92,6 +92,8 @@ export const DIGIT_PATHS = {
       { cmd: 'M', x: 0.5,  y: 0.08 },
       { cmd: 'C', cx1: 0.82, cy1: 0.08, cx2: 0.82, cy2: 0.5,  x: 0.5,  y: 0.5  },
       { cmd: 'C', cx1: 0.18, cy1: 0.5,  cx2: 0.18, cy2: 0.08, x: 0.5,  y: 0.08 },
+    ],
+    [
       { cmd: 'M', x: 0.82, y: 0.35 },
       { cmd: 'C', cx1: 0.82, cy1: 0.65, cx2: 0.75, cy2: 0.92, x: 0.5,  y: 0.92 },
       { cmd: 'C', cx1: 0.35, cy1: 0.92, cx2: 0.25, cy2: 0.85, x: 0.22, y: 0.78 },
@@ -107,6 +109,7 @@ function samplePath(cmds, steps) {
   for (const cmd of cmds) {
     if (cmd.cmd === 'M') {
       cx = cmd.x; cy = cmd.y;
+      pts.push({ x: cx, y: cy });
     } else if (cmd.cmd === 'L') {
       const n = Math.max(3, Math.round(steps * 0.25));
       for (let i = 1; i <= n; i++) {

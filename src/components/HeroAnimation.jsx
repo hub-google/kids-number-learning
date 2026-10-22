@@ -52,7 +52,10 @@ export default function HeroAnimation({ type, praiseText, onDismiss }) {
   return (
     <div
       onClick={handleDismiss}
-      onTouchEnd={handleDismiss}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDismiss(e); }}
+      role="button"
+      tabIndex={0}
+      aria-label="關閉英雄動畫"
       style={{
         position: 'absolute',
         top: 0,

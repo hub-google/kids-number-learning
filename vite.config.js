@@ -1,34 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const projectDir = path.dirname(fileURLToPath(import.meta.url));
 function autoVersionPlugin() {
   return {
     name: 'auto-version-plugin',
-    buildStart() {
-      const buildVersion = Date.now().toString();
-      const versionData = JSON.stringify({
-        version: buildVersion,
-        buildTime: new Date().toISOString()
-      }, null, 2);
-      
-      const publicDir = path.resolve(__dirname, 'public');
-      if (!fs.existsSync(publicDir)) {
-        fs.mkdirSync(publicDir, { recursive: true });
-      }
-      fs.writeFileSync(path.join(publicDir, 'version.json'), versionData);
-    },
     writeBundle(options) {
-      const buildVersion = Date.now().toString();
-      const versionData = JSON.stringify({
-        version: buildVersion,
+      const outputDir = options.dir || path.resolve(projectDir, 'dist');
+      const versionData = {
+        version: process.env.GITHUB_SHA || Date.now().toString(),
         buildTime: new Date().toISOString()
-      }, null, 2);
-      const outDir = options.dir || path.resolve(__dirname, 'dist');
-      if (fs.existsSync(outDir)) {
-        fs.writeFileSync(path.join(outDir, 'version.json'), versionData);
-      }
+      };
+      fs.writeFileSync(path.join(outputDir, 'version.json'), JSON.stringify(versionData));
     }
   };
 }

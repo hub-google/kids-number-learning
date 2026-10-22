@@ -4,6 +4,7 @@ import NumberGrid from './components/NumberGrid';
 import TracingCanvas from './components/TracingCanvas';
 import HeroAnimation from './components/HeroAnimation';
 import { getRandomClap, getRandomHeroPraise } from './utils/praiseData';
+import { MAX_NUMBER } from './utils/numberRange';
 
 export default function App() {
   const [view, setView] = useState('grid'); // 'grid' or 'trace'
@@ -28,14 +29,12 @@ export default function App() {
         if (!res.ok) return;
         const data = await res.json();
         if (data && data.version) {
-          const localVer = localStorage.getItem('app_version');
+          const localVer = localStorage.getItem('kids-number-learning:version');
           if (localVer && localVer !== data.version) {
-            localStorage.setItem('app_version', data.version);
-            const url = new URL(window.location.href);
-            url.searchParams.set('_v', data.version);
-            window.location.replace(url.toString());
+            localStorage.setItem('kids-number-learning:version', data.version);
+            window.location.reload();
           } else {
-            localStorage.setItem('app_version', data.version);
+            localStorage.setItem('kids-number-learning:version', data.version);
           }
         }
       } catch (e) {
@@ -52,11 +51,9 @@ export default function App() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    const interval = setInterval(checkVersion, 30000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(interval);
     };
   }, []);
 
@@ -143,7 +140,7 @@ export default function App() {
       setHeroActive(false);
       if (heroTimeoutRef.current) clearTimeout(heroTimeoutRef.current);
     }
-    const nextNum = (currentNumber || 1) + 1;
+    const nextNum = Math.min(MAX_NUMBER, (currentNumber || 1) + 1);
     setCurrentNumber(nextNum);
     speak(nextNum.toString());
   };
@@ -251,14 +248,7 @@ export default function App() {
           <button 
             onClick={() => {
               triggerHaptic();
-              const url = new URL(window.location.href);
-              url.searchParams.set('_v', Date.now().toString());
-              if ('caches' in window) {
-                caches.keys().then((names) => {
-                  names.forEach((name) => caches.delete(name));
-                });
-              }
-              window.location.replace(url.toString());
+              window.location.reload();
             }}
             aria-label="刷新最新版"
             style={{
@@ -283,6 +273,7 @@ export default function App() {
           <button 
             onClick={() => {
               triggerHaptic();
+              if (soundEnabled) stopAllAudio();
               setSoundEnabled(!soundEnabled);
             }}
             aria-label={soundEnabled ? '關閉音效' : '開啟音效'}
