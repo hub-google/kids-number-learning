@@ -26,3 +26,16 @@ test('every stroke includes its true pen-down point', () => {
     }
   }
 });
+
+test('digit 1 is a single vertical downstroke with no hook', () => {
+  assert.deepEqual(DIGIT_PATHS['1'], [[
+    { cmd: 'M', x: 0.5, y: 0.08 },
+    { cmd: 'L', x: 0.5, y: 0.92 }
+  ]]);
+  const strokes = generateCheckpoints('1', 360, 400);
+  assert.equal(strokes.length, 1);
+  assert.ok(strokes[0].length > 1);
+  const x = strokes[0][0].x;
+  assert.ok(strokes[0].every(point => Math.abs(point.x - x) < 0.00001));
+  assert.ok(strokes[0][0].y < strokes[0].at(-1).y);
+});

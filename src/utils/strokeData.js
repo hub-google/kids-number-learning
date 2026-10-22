@@ -18,9 +18,9 @@ export const DIGIT_PATHS = {
   ],
   '1': [
     [
-      { cmd: 'M', x: 0.35, y: 0.22 },
-      { cmd: 'Q', cx: 0.45, cy: 0.15, x: 0.55, y: 0.08 },
-      { cmd: 'L', x: 0.55, y: 0.92 },
+      // Handwritten beginner's 1: one straight downstroke, no printed-type hook.
+      { cmd: 'M', x: 0.5, y: 0.08 },
+      { cmd: 'L', x: 0.5, y: 0.92 },
     ]
   ],
   '2': [
