@@ -16,88 +16,92 @@ export const DIGIT_PATHS = {
       { cmd: 'C', cx1: 0.15, cy1: 0.3,  cx2: 0.22, cy2: 0.08, x: 0.5,  y: 0.08 },
     ]
   ],
+  // Handwritten digits based on the user's approved children's workbook reference.
+  // All positions are normalized to 0..1 and use round pen caps.
   '1': [
     [
-      // Handwritten beginner's 1: one straight downstroke, no printed-type hook.
       { cmd: 'M', x: 0.5, y: 0.08 },
       { cmd: 'L', x: 0.5, y: 0.92 },
-    ]
+    ],
   ],
   '2': [
     [
-      { cmd: 'M', x: 0.22, y: 0.32 },
-      { cmd: 'C', cx1: 0.22, cy1: 0.1,  cx2: 0.78, cy2: 0.1,  x: 0.78, y: 0.32 },
-      { cmd: 'Q', cx: 0.78, cy: 0.52, x: 0.5,  y: 0.62 },
-      { cmd: 'L', x: 0.22, y: 0.92 },
-      { cmd: 'L', x: 0.78, y: 0.92 },
-    ]
+      { cmd: 'M', x: 0.22, y: 0.28 },
+      { cmd: 'C', cx1: 0.29, cy1: 0.02, cx2: 0.83, cy2: 0.02, x: 0.78, y: 0.33 },
+      { cmd: 'C', cx1: 0.75, cy1: 0.53, cx2: 0.44, cy2: 0.70, x: 0.22, y: 0.91 },
+      { cmd: 'L', x: 0.78, y: 0.91 },
+    ],
   ],
   '3': [
     [
-      { cmd: 'M', x: 0.22, y: 0.22 },
-      { cmd: 'C', cx1: 0.22, cy1: 0.08, cx2: 0.78, cy2: 0.08, x: 0.78, y: 0.28 },
-      { cmd: 'Q', cx: 0.78, cy: 0.48, x: 0.48, y: 0.5  },
-      { cmd: 'Q', cx: 0.78, cy: 0.52, x: 0.78, y: 0.72 },
-      { cmd: 'C', cx1: 0.78, cy1: 0.92, cx2: 0.22, cy2: 0.92, x: 0.22, y: 0.78 },
-    ]
+      { cmd: 'M', x: 0.24, y: 0.18 },
+      { cmd: 'C', cx1: 0.39, cy1: 0.02, cx2: 0.83, cy2: 0.05, x: 0.76, y: 0.31 },
+      { cmd: 'Q', cx: 0.72, cy: 0.44, x: 0.49, y: 0.49 },
+      { cmd: 'C', cx1: 0.88, cy1: 0.43, cx2: 0.90, cy2: 0.79, x: 0.68, y: 0.89 },
+      { cmd: 'C', cx1: 0.47, cy1: 1.00, cx2: 0.22, cy2: 0.89, x: 0.20, y: 0.79 },
+    ],
   ],
   '4': [
     [
-      { cmd: 'M', x: 0.68, y: 0.08 },
-      { cmd: 'L', x: 0.22, y: 0.62 },
-      { cmd: 'L', x: 0.82, y: 0.62 },
+      // Open handwritten 4: left downstroke into the crossbar.
+      { cmd: 'M', x: 0.33, y: 0.12 },
+      { cmd: 'L', x: 0.30, y: 0.63 },
+      { cmd: 'L', x: 0.80, y: 0.63 },
     ],
     [
-      { cmd: 'M', x: 0.68, y: 0.08 },
-      { cmd: 'L', x: 0.68, y: 0.92 },
-    ]
+      { cmd: 'M', x: 0.63, y: 0.34 },
+      { cmd: 'L', x: 0.63, y: 0.92 },
+    ],
   ],
   '5': [
     [
-      { cmd: 'M', x: 0.75, y: 0.08 },
-      { cmd: 'L', x: 0.28, y: 0.08 },
-      { cmd: 'L', x: 0.28, y: 0.45 },
-      { cmd: 'C', cx1: 0.28, cy1: 0.38, cx2: 0.78, cy2: 0.38, x: 0.78, y: 0.65 },
-      { cmd: 'C', cx1: 0.78, cy1: 0.9,  cx2: 0.22, cy2: 0.92, x: 0.22, y: 0.8  },
-    ]
+      { cmd: 'M', x: 0.77, y: 0.12 },
+      { cmd: 'L', x: 0.29, y: 0.12 },
+      { cmd: 'L', x: 0.27, y: 0.48 },
+      { cmd: 'C', cx1: 0.45, cy1: 0.38, cx2: 0.80, cy2: 0.46, x: 0.80, y: 0.68 },
+      { cmd: 'C', cx1: 0.80, cy1: 0.91, cx2: 0.37, cy2: 0.98, x: 0.22, y: 0.80 },
+    ],
   ],
   '6': [
     [
-      { cmd: 'M', x: 0.72, y: 0.15 },
-      { cmd: 'C', cx1: 0.5,  cy1: 0.02, cx2: 0.18, cy2: 0.2,  x: 0.18, y: 0.5  },
-      { cmd: 'C', cx1: 0.18, cy1: 0.78, cx2: 0.32, cy2: 0.95, x: 0.5,  y: 0.95 },
-      { cmd: 'C', cx1: 0.72, cy1: 0.95, cx2: 0.82, cy2: 0.78, x: 0.82, y: 0.65 },
-      { cmd: 'C', cx1: 0.82, cy1: 0.5,  cx2: 0.62, cy2: 0.45, x: 0.42, y: 0.5  },
-      { cmd: 'C', cx1: 0.28, cy1: 0.53, cx2: 0.18, cy2: 0.55, x: 0.18, y: 0.5  },
-    ]
+      { cmd: 'M', x: 0.75, y: 0.12 },
+      { cmd: 'C', cx1: 0.56, cy1: 0.27, cx2: 0.34, cy2: 0.45, x: 0.29, y: 0.65 },
+      { cmd: 'C', cx1: 0.20, cy1: 0.89, cx2: 0.44, cy2: 0.98, x: 0.63, y: 0.87 },
+      { cmd: 'C', cx1: 0.88, cy1: 0.74, cx2: 0.80, cy2: 0.49, x: 0.63, y: 0.50 },
+      { cmd: 'C', cx1: 0.49, cy1: 0.47, cx2: 0.35, cy2: 0.53, x: 0.29, y: 0.65 },
+    ],
   ],
   '7': [
     [
-      { cmd: 'M', x: 0.2,  y: 0.08 },
-      { cmd: 'L', x: 0.8,  y: 0.08 },
-      { cmd: 'Q', cx: 0.7,  cy: 0.35, x: 0.42, y: 0.92 },
-    ]
+      // Top bar and descending diagonal (the approved workbook shape).
+      { cmd: 'M', x: 0.22, y: 0.13 },
+      { cmd: 'L', x: 0.81, y: 0.13 },
+      { cmd: 'L', x: 0.45, y: 0.92 },
+    ],
+    [
+      // The characteristic short downward notch at the upper left.
+      { cmd: 'M', x: 0.22, y: 0.13 },
+      { cmd: 'L', x: 0.25, y: 0.31 },
+    ],
   ],
   '8': [
     [
-      { cmd: 'M', x: 0.5,  y: 0.5  },
-      { cmd: 'C', cx1: 0.82, cy1: 0.5,  cx2: 0.82, cy2: 0.08, x: 0.5,  y: 0.08 },
-      { cmd: 'C', cx1: 0.18, cy1: 0.08, cx2: 0.18, cy2: 0.5,  x: 0.5,  y: 0.5  },
-      { cmd: 'C', cx1: 0.82, cy1: 0.5,  cx2: 0.82, cy2: 0.92, x: 0.5,  y: 0.92 },
-      { cmd: 'C', cx1: 0.18, cy1: 0.92, cx2: 0.18, cy2: 0.5,  x: 0.5,  y: 0.5  },
-    ]
+      // Rounded figure-eight with a smaller top loop.
+      { cmd: 'M', x: 0.50, y: 0.49 },
+      { cmd: 'C', cx1: 0.80, cy1: 0.30, cx2: 0.76, cy2: 0.09, x: 0.50, y: 0.10 },
+      { cmd: 'C', cx1: 0.19, cy1: 0.09, cx2: 0.22, cy2: 0.31, x: 0.50, y: 0.49 },
+      { cmd: 'C', cx1: 0.84, cy1: 0.67, cx2: 0.79, cy2: 0.92, x: 0.50, y: 0.92 },
+      { cmd: 'C', cx1: 0.19, cy1: 0.92, cx2: 0.15, cy2: 0.66, x: 0.50, y: 0.49 },
+    ],
   ],
   '9': [
     [
-      { cmd: 'M', x: 0.5,  y: 0.08 },
-      { cmd: 'C', cx1: 0.82, cy1: 0.08, cx2: 0.82, cy2: 0.5,  x: 0.5,  y: 0.5  },
-      { cmd: 'C', cx1: 0.18, cy1: 0.5,  cx2: 0.18, cy2: 0.08, x: 0.5,  y: 0.08 },
+      // A single rounded loop with a descending tail; no serif/hook at the bottom.
+      { cmd: 'M', x: 0.73, y: 0.36 },
+      { cmd: 'C', cx1: 0.82, cy1: 0.07, cx2: 0.35, cy2: 0.02, x: 0.23, y: 0.31 },
+      { cmd: 'C', cx1: 0.11, cy1: 0.61, cx2: 0.61, cy2: 0.71, x: 0.73, y: 0.36 },
+      { cmd: 'L', x: 0.62, y: 0.92 },
     ],
-    [
-      { cmd: 'M', x: 0.82, y: 0.35 },
-      { cmd: 'C', cx1: 0.82, cy1: 0.65, cx2: 0.75, cy2: 0.92, x: 0.5,  y: 0.92 },
-      { cmd: 'C', cx1: 0.35, cy1: 0.92, cx2: 0.25, cy2: 0.85, x: 0.22, y: 0.78 },
-    ]
   ],
 };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import HandwrittenNumber from './HandwrittenNumber';
 import { clampNumber, normalizeRange } from '../utils/numberRange';
 
 export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled, speak, triggerHaptic }) {
@@ -288,6 +289,7 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
               {rowNumbers.map(num => (
                 <button
                   key={num}
+                  aria-label={String(num)}
                   onClick={() => onSelectNumber(num)}
                   className="animate-pop"
                   style={{
@@ -325,7 +327,7 @@ export default function NumberGrid({ onSelectNumber, onTriggerHero, soundEnabled
                     e.currentTarget.style.boxShadow = `0 ${isMobile ? 3 : 5}px 0 ${rowIdx % 2 === 0 ? '#a1c4fd' : '#c2e9fb'}`;
                   }}
                 >
-                  {num}
+                  <HandwrittenNumber value={num} />
                 </button>
               ))}
             </div>

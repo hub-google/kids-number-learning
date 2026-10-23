@@ -50,6 +50,12 @@ async function main() {
     await desktop.getByRole('button', { name: '寫好了' }).click();
     await desktop.getByRole('button', { name: '下一個數字 (2)', exact: true }).click();
     await desktop.getByText('數字 2', { exact: true }).waitFor();
+    // Exercise each approved handwritten digit in the real browser.
+    for (let digit = 3; digit <= 9; digit++) {
+      await desktop.getByRole('button', { name: '下一個數字', exact: true }).click();
+      await desktop.getByText(`數字 ${digit}`, { exact: true }).waitFor();
+      assert.equal(await desktop.locator('canvas').count(), 2);
+    }
     await desktop.getByRole('button', { name: '回到主頁格' }).click();
     await desktop.getByRole('button', { name: '1', exact: true }).waitFor();
   });

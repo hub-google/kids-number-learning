@@ -11,9 +11,12 @@ test('ranges stay finite, ordered and within 1 to 1000', () => {
   assert.equal(clampNumber('55.8'), 55);
 });
 
-test('digit 9 does not join disconnected pen strokes', () => {
-  assert.equal(DIGIT_PATHS['9'].length, 2);
-  assert.equal(generateCheckpoints('9', 360, 400).length, 2);
+test('digit 9 uses a continuous loop and tail without a printed-style bottom hook', () => {
+  assert.equal(DIGIT_PATHS['9'].length, 1);
+  assert.equal(generateCheckpoints('9', 360, 400).length, 1);
+  const cmds = DIGIT_PATHS['9'][0];
+  assert.equal(cmds.at(-1).cmd, 'L');
+  assert.ok(cmds.at(-1).y > 0.85);
 });
 
 test('every stroke includes its true pen-down point', () => {
@@ -38,4 +41,42 @@ test('digit 1 is a single vertical downstroke with no hook', () => {
   const x = strokes[0][0].x;
   assert.ok(strokes[0].every(point => Math.abs(point.x - x) < 0.00001));
   assert.ok(strokes[0][0].y < strokes[0].at(-1).y);
+});
+
+test('all 1-9 characters have valid handwritten drawing commands', () => {
+  for (let number = 1; number <= 9; number++) {
+    const strokes = DIGIT_PATHS[String(number)];
+    assert.ok(strokes.length >= 1);
+    for (const stroke of strokes) {
+      assert.equal(stroke[0].cmd, 'M');
+      assert.ok(stroke.length >= 2);
+      for (const command of stroke) {
+        assert.ok(['M', 'L', 'Q', 'C'].includes(command.cmd));
+        for (const [name, value] of Object.entries(command)) {
+          if (name === 'cmd') continue;
+          assert.ok(Number.isFinite(value), `${number} ${name} is finite`);
+          assert.ok(value >= 0 && value <= 1, `${number} ${name} is normalized`);
+        }
+      }
+    }
+    assert.ok(generateCheckpoints(String(number), 360, 400).flat().length >= 4);
+  }
+});
+
+test('workbook handwritten 7 has a short left notch and diagonal downstroke', () => {
+  const seven = DIGIT_PATHS['7'];
+  assert.equal(seven.length, 2);
+  assert.deepEqual(seven[0].map(command => command.cmd), ['M', 'L', 'L']);
+  const [topLeft, topRight, bottom] = seven[0];
+  assert.ok(topLeft.x < topRight.x && topLeft.y === topRight.y);
+  assert.ok(bottom.x < topRight.x && bottom.y > topRight.y);
+  assert.ok(seven[1][1].y > seven[1][0].y);
+  assert.ok(seven[1][1].y < bottom.y);
+});
+
+test('workbook handwritten 4 is open at top, not a closed printed numeral', () => {
+  const four = DIGIT_PATHS['4'];
+  assert.equal(four.length, 2);
+  assert.deepEqual(four[0].map(command => command.cmd), ['M', 'L', 'L']);
+  assert.equal(four[1][0].cmd, 'M');
 });
